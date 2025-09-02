@@ -1,6 +1,6 @@
 rm(list = ls()) 
 
-pacman::p_load(tidyverse, sf, cartogram, patchwork, biscale, cowplot, gridGraphics)
+pacman::p_load(tidyverse, sf, cartogram, patchwork, biscale, cowplot, gridGraphics, haven)
 
 dat <- readRDS("data/level_two_vars_2021_raw.RDS")
 
@@ -75,3 +75,54 @@ p1 + p2
 
 ggsave("viz/pca_map.png",
        width = 25.5, height = 16.575, unit = "cm")
+
+# interaction plot from Adler and Ansell ---------------------------------------
+
+rm(list = ls())
+
+dat <- read_dta("data/panel_data/BES2019_W22_v24.0.dta")
+
+lvl2 <- readRDS("data/level_two_vars_2021_raw.RDS")
+
+dat <- dat %>% 
+  left_join(lvl2,
+            by = c("oslaua_code" = "la_code")) %>% 
+  mutate(p_eurefvote = na_if(p_eurefvote, 9999),
+         homeowner = as.factor(ifelse(dat$p_housing == 1 | dat$p_housing == 2, "Homeowner", "Non-homeowner")),
+         uni = ifelse(p_edlevel > 3, 1, 0),
+         white_british = ifelse(p_ethnicity == 1, 1, 0))
+
+dat %>% count(p_eurefvote)
+dat %>% count(homeowner, p_housing)
+
+brexit_mod <- glm(p_eurefvote ~  
+                    (homeowner * prices) +
+                    over_65_pct + under_16_pct + non_uk_pct +
+                    pop_density, data = dat, family = "binomial")
+
+summary(brexit_mod)
+
+pacman::p_load(ggeffects)
+
+predictions <- predict_response(brexit_mod, 
+                                c("prices [all]", "homeowner"))
+
+as_tibble(predictions) %>% 
+  ggplot(aes(x = x, y = predicted, group = group)) +
+  geom_ribbon(aes(fill = group, ymax = conf.high, ymin = conf.low), alpha = 0.3) +
+  geom_line(aes(colour = group), linewidth = 2) +
+  theme_bw() +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  labs(colour = NULL, fill = NULL, x = "Median house price (log)", y = "Predicted probability of voting Leave",
+       caption = "Interaction between homeownership and median house prices in predicting support for Leave. Replication of Adler and Ansell (2019).") +
+  theme(
+    axis.title = element_text(face = "bold",
+                              size = 12),
+    plot.caption.position = "plot",
+    plot.caption = element_text(hjust = 0,
+                                size = 12),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave("viz/replication_adler_ansell.png")
