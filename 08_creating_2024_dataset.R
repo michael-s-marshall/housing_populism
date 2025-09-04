@@ -151,13 +151,12 @@ dat |> count(generalElectionVote, generalElectionVoteNonVoter)
 dat <- dat |> 
   mutate(
     brexit_party = case_when(
-      generalElectionVote == 12 | generalElectionVoteNonVoter == 12 ~ 1,
-      .default = 0
-    ),
-    brexit_voter = case_when(generalElectionVote == 12 ~ 1, .default = 0)
-  )
+      generalElectionVote == 12 ~ 1,
+      generalElectionVote == 9999 ~ NA,
+      .default = 0)
+    )
 
-dat %>% count(brexit_party, brexit_voter, generalElectionVote, generalElectionVoteNonVoter)
+dat %>% count(brexit_party, generalElectionVote, generalElectionVoteNonVoter)
 
 ##############################################################
 # level 2 vars -----------------------------------------------
@@ -181,7 +180,7 @@ level_twos <- level_2s %>% select(-la_code) %>% names()
 # selecting variables --------------------------------------------------
 
 dat <- dat %>% 
-  select(id, brexit_party, brexit_voter, tory_2019, la_code, male, uni,
+  select(id, brexit_party, tory_2019, la_code, male, uni,
          white_british, white_other, indian, chinese, black, pakistan_bangladesh, mixed_race,
          no_religion, c1_c2, d_e, 
          own_outright, own_mortgage, social_housing, private_renting,

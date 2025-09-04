@@ -85,7 +85,8 @@ df_full <- dat %>%
          -part_time, -log_age, 
          -region_fct, -e, -d, -c1, -c2, -b, -cohabiting, -edu_20plus,
          -nn_uni_preds, -pred_el_round, -income_knn,
-         -ta_rate, -ta_preds_raw, -ta_preds) %>% 
+         -ta_rate, -ta_preds_raw, -ta_preds,
+         -claims, -claims_preds, -claims_raw, -claims_preds_raw) %>% 
   rename(LAD = la_code)
 
 sum_na(df_full)
@@ -350,54 +351,6 @@ tibble(
 
 ggsave("viz/comparison_for_degree_pct.png")
 
-# visualising coefficients ---------------------------------
-
-confint_clean <- function(confint_obj, lmer_obj){
-  confint_obj %>% 
-    as_tibble() %>% 
-    bind_cols(
-      tibble(term = c(".sig01",".sigma",names(fixef(lmer_obj))))
-    ) %>% 
-    bind_cols(tibble(estimate = c(NA, NA, fixef(lmer_obj)))) %>% 
-    na.omit() %>% 
-    filter(term != "(Intercept)") %>% 
-    rename(lower = 1, upper = 2)
-}
-
-set.seed(123)
-int_confint <- confint(immi_int, method = "profile")
-
-plot_names <- tibble(
-  term = c(housing_vars, "private_renting"),
-  var_names = c("Affordability",
-                "Homeowner",
-                "Social housing",
-                "Affordability:Homeowner",
-                "Affordability:Social housing",
-                "Private renting")
-)
-
-coef_plot_immi <- int_confint %>% 
-  confint_clean(immi_int) %>%
-  select(term, everything()) %>% 
-  filter(term %in% plot_names$term) %>% 
-  left_join(plot_names, by = "term") %>% 
-  ggplot(aes(x = estimate, y = fct_rev(var_names))) +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
-             linewidth = 1.5, alpha = 0.7) +
-  geom_linerangeh(aes(xmin = lower, xmax = upper), 
-                  position = position_dodge(width = 0.4),
-                  size = 1) +
-  geom_point(position = position_dodge(width = 0.4),
-             shape = 21, fill = "white", size = 3.5) +
-  theme_bw() +
-  drop_y_gridlines() +
-  labs(x = "Estimate", y = NULL)
-
-coef_plot_immi
-
-ggsave("viz/coef_plot_2021.png")
-
 # visualising interaction term ------------------------------
 
 # making interaction terms with raw values
@@ -629,23 +582,6 @@ summary(immi_glm)
 marginals_glm <- margins(immi_glm, type = "response")
 summary(marginals_glm)
 
-marginals_glm |> 
-  summary() |> 
-  as_tibble() |>
-  filter(factor %in% plot_names$term) |>  
-  left_join(plot_names, by = c("factor" = "term"))  |>  
-  ggplot(aes(x = AME, y = fct_rev(var_names))) +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
-             linewidth = 1.5, alpha = 0.7) +
-  geom_linerangeh(aes(xmin = lower, xmax = upper), 
-                  position = position_dodge(width = 0.4),
-                  size = 1) +
-  geom_point(position = position_dodge(width = 0.4),
-             shape = 21, fill = "white", size = 3.5) +
-  theme_bw() +
-  drop_y_gridlines() +
-  labs(x = "Average Marginal Effect", y = NULL)
-
 # PCA ----------------------------------------
 
 immi_pca <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
@@ -710,6 +646,7 @@ confint_clean <- function(confint_obj, lmer_obj){
     filter(term != "(Intercept)") %>% 
     rename(lower = 1, upper = 2)
 }
+
 
 combined_names <- tibble(
   term = c("pc1","social_housing.pc1",
@@ -944,7 +881,7 @@ export_summs(immi_glm, glmr_pca,
              file.name = "tables/2021_logit_table.docx",
              statistics = c(N = "nobs", AIC = "AIC", logLik = "logLik"))
 
-list(immi_reg, immi_pca) %>% 
+list(immi_lmer, immi_reg, immi_pca) %>% 
   map(summ, re.variance = "var", digits = 3)
 
 list(immi_int, immi_log, immi_int_price) %>% 

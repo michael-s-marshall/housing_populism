@@ -203,8 +203,9 @@ occ <- occ %>%
 
 occ <- occ %>% 
   mutate(total_households = rowSums(across(overoccupied:above_two)),
-         overoccupied_pct = overoccupied / total_households) %>% 
-  select(la_code, overoccupied_pct)
+         overoccupied_pct = overoccupied / total_households,
+         underoccupied_pct = above_two / total_households) %>% 
+  select(la_code, overoccupied_pct, underoccupied_pct)
 
 dat <- dat %>% 
   left_join(occ, by = "la_code")
@@ -223,6 +224,21 @@ dat <- dat %>%
 sum_na(dat)
 
 which_na(dat, ta_rate)
+
+# possession claims ---------------------------------------------------------
+
+claims <- read_csv("data/possession_statistics_2021.csv")
+
+claims <- claims %>% 
+  rename(claims = map_2_landlord_possession_claims) %>% 
+  select(la_code, claims)
+
+dat <- dat %>% 
+  left_join(claims, by = "la_code")
+
+sum_na(dat)
+
+which_na(dat, claims)
 
 # region --------------------------------------------------------------------
 
@@ -247,7 +263,7 @@ fitControl <- trainControl(
 )
 
 predictors <- dat %>%
-  select(-la_code, -ta_rate, -affordability_log, -private_rented_pct, -churn) %>% 
+  select(-la_code, -ta_rate, -affordability_log, -private_rented_pct, -churn, -claims) %>% 
   names()
 
 outcome_name <- "ta_rate"
@@ -326,6 +342,86 @@ dat <- dat %>%
 
 sum_na(dat)
 
+# imputing claims ------------------------------------------------------
+
+predictors2 <- dat %>%
+  select(-la_code, -ta_rate, -affordability_log, -private_rented_pct, -churn, -claims, -ta_preds, -ta_rate_full) %>% 
+  names()
+
+outcome_name2 <- "claims"
+
+train_dat2 <- dat %>% 
+  column_to_rownames("la_code") %>% 
+  as.data.frame() %>% 
+  na.omit()
+
+x_trans2 <- preProcess(train_dat2[,predictors2])
+train_dat2[,predictors2] <- predict(x_trans2, train_dat2[,predictors2])
+
+# training the lm model 
+model_lm2 <- train(train_dat2[,predictors2],
+                   train_dat2[,outcome_name2],
+                   method= "lm",
+                   trControl = fitControl)
+summary(model_lm2)
+
+# training the random forest
+set.seed(123)
+model_rf2 <- train(train_dat2[,predictors2],
+                   train_dat2[,outcome_name2],
+                   method = "rf",
+                   trControl = fitControl,
+                   tuneLength = 7)
+
+model_rf2
+
+# neural network
+set.seed(123)
+model_nn2 <- train(train_dat2[,predictors2],
+                   train_dat2[,outcome_name2],
+                   method= "nnet",
+                   trControl = fitControl,
+                   linout = TRUE,
+                   tuneLength = 7)
+
+model_nn2
+
+# ensemble 
+train_dat2$lm_preds <- predict(model_lm2, newdata = train_dat2)
+train_dat2$rf_preds <- predict(model_rf2, newdata = train_dat2)
+train_dat2$nn_preds <- predict(model_nn2, newdata = train_dat2)
+
+set.seed(123)
+model_en2 <- train(train_dat2[,top_layer],
+                   train_dat2[,outcome_name2],
+                   method = "nnet",
+                   linout = TRUE,
+                   trControl = fitControl,
+                   tuneLength = 7)
+model_en2
+
+dat3 <- dat %>% drop_na(affordability)
+dat3[,predictors2] <- predict(x_trans2, dat3[,predictors2])
+dat3$lm_preds <- predict(model_lm2, newdata = dat3)
+dat3$rf_preds <- predict(model_rf2, newdata = dat3) 
+dat3$nn_preds <- predict(model_nn2, newdata = dat3)
+dat3$claims_preds <- predict(model_en2, newdata = dat3)
+
+dat3 %>% 
+  ggplot(aes(x = claims_preds, y = claims)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth()
+
+dat3 %>% 
+  select(claims_preds, claims) %>% 
+  corrr::correlate()
+
+dat <- dat %>% 
+  left_join(dat3 %>% select(la_code, claims_preds), by = "la_code") %>% 
+  mutate(claims_full = ifelse(is.na(claims), claims_preds, claims))
+
+sum_na(dat)
+
 # scaling ---------------------------------------
 
 to_scale <- dat %>% select_if(is.numeric) %>% names()
@@ -340,7 +436,8 @@ dat[to_scale] <- dat[to_scale] %>%
 # PCA ----------------------------------------------------------
 
 pca_dat <- dat |> 
-  select(la_code, affordability, homeowner_pct, ta_rate_full, overoccupied_pct) %>% 
+  select(la_code, affordability, homeowner_pct, ta_rate_full, 
+         overoccupied_pct, underoccupied_pct, claims_full) %>% 
   na.omit()
 
 pca_mat <- pca_dat %>% 
@@ -364,7 +461,9 @@ pca_tab <- pca_fit$rotation %>%
                PC1 = var_explained[1],
                PC2 = var_explained[2],
                PC3 = var_explained[3],
-               PC4 = var_explained[4])
+               PC4 = var_explained[4],
+               PC5 = var_explained[5],
+               PC6 = var_explained[6])
   )
 
 write.csv(pca_tab, file = "tables/pca_table_2021.csv")

@@ -71,7 +71,8 @@ df_full <- dat %>%
          -part_time, -log_age, -churn, -churn_raw,
          -region_fct, -e, -d, -c1, -c2, -b, -cohabiting, -edu_20plus,
          -nn_uni_preds, -pred_el_round, -income_knn,
-         -ta_rate, -ta_preds_raw, -ta_preds) %>% 
+         -ta_rate, -ta_preds_raw, -ta_preds,
+         -claims, -claims_raw, -claims_preds, -claims_preds_raw, -claims_full_raw) %>% 
   rename(LAD = la_code)
 
 sum_na(df_full)
@@ -159,45 +160,12 @@ summary(immi_int)
 
 anova(immi_test, immi_int)
 
-# saving model --------------------------------------------------------
-
-saveRDS(immi_int, file = "models/immi_int_2024.RDS")
-
-# visualising coefficients ---------------------------------
-
-plot_names <- tibble(
-  term = c("affordability","homeowner","social_housing",
-           "homeowner.affordability","social_housing.affordability", "private_renting"),
-  var_names = c("Affordability",
-                "Homeowner",
-                "Social housing",
-                "Affordability:Homeowner",
-                "Affordability:Social housing",
-                "Private renting")
-)
-
-# marginal effects
 marginals_glm <- margins(immi_int, type = "response")
 summary(marginals_glm)
 
-marginals_glm |> 
-  summary() |> 
-  as_tibble() |>
-  filter(factor %in% plot_names$term) |>  
-  left_join(plot_names, by = c("factor" = "term"))  |>  
-  ggplot(aes(x = AME, y = fct_rev(var_names))) +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
-             linewidth = 1.5, alpha = 0.7) +
-  geom_linerangeh(aes(xmin = lower, xmax = upper), 
-                  position = position_dodge(width = 0.4),
-                  size = 1) +
-  geom_point(position = position_dodge(width = 0.4),
-             shape = 21, fill = "white", size = 3.5) +
-  theme_bw() +
-  drop_y_gridlines() +
-  labs(x = "Average Marginal Effect", y = NULL)
+# saving model --------------------------------------------------------
 
-ggsave("viz/ame_plot_2024.png")
+saveRDS(immi_int, file = "models/immi_int_2024.RDS")
 
 # robustness check - log scale -------------------------------------
 
@@ -282,74 +250,9 @@ anova(immi_int, immi_reg)
 
 saveRDS(immi_reg, file = "models/immi_reg_2024.RDS")
 
-# housing stress measures ------------------------------------------------------
-
-immi_ta <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
-                   affordability +
-                   ta_rate_full +
-                   male +
-                   white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
-                   no_religion +
-                   age + income_full + uni_full +
-                   c1_c2 + d_e + non_uk_born +
-                   #non_uk_pct +
-                   pop_density +
-                   over_65_pct + under_16_pct +
-                   degree_pct +
-                   #homeowner_pct +
-                   social_rented_pct +
-                   region_code +
-                   social_housing.ta_rate_full +
-                   homeowner.affordability +
-                   (1|LAD),
-                 data = df_full, family = binomial("logit"),
-                 control = glmerControl(optimizer = "bobyqa"))
-summary(immi_ta)
-
-anova(immi_reg, immi_ta)
-
-saveRDS(immi_ta, file = "models/immi_ta_2024.RDS")
-
-# overoccupying
-immi_occ <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
-                    affordability +
-                    overoccupied_pct +
-                    male +
-                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
-                    no_religion +
-                    age + income_full + uni_full +
-                    c1_c2 + d_e + non_uk_born +
-                    #non_uk_pct + 
-                    pop_density +
-                    over_65_pct + under_16_pct +
-                    degree_pct +
-                    #homeowner_pct + 
-                    social_rented_pct +
-                    region_code +
-                    social_housing.overoccupied_pct +
-                    homeowner.affordability +
-                    (1|LAD),
-                  data = df_full, family = binomial("logit"),
-                  control = glmerControl(optimizer = "bobyqa"))
-summary(immi_occ)
-
-anova(immi_reg, immi_occ)
-
-saveRDS(immi_occ, file = "models/immi_occ_2024.RDS")
-
-# marginals for housing stress measures --------------------------------------
-
 # marginal effects
 marginals_reg <- margins(immi_reg, type = "response")
 summary(marginals_reg)
-
-# marginal effects
-marginals_ta <- margins(immi_ta, type = "response")
-summary(marginals_ta)
-
-# marginal effects
-marginals_occ <- margins(immi_occ, type = "response")
-summary(marginals_occ)
 
 # KNN imputation of income ------------------------------------------------
 
@@ -376,44 +279,12 @@ summary(immi_knn)
 
 anova(immi_reg, immi_knn)
 
-# brexit voters only ------------------------------------------------------------
-
-immi_vot <- glmer(brexit_voter ~ social_housing + homeowner + private_renting +
-                    affordability +
-                    male +
-                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
-                    no_religion +
-                    age + income_full + uni_full +
-                    c1_c2 + d_e + non_uk_born +
-                    #non_uk_pct + 
-                    pop_density +
-                    over_65_pct + under_16_pct +
-                    degree_pct +
-                    #homeowner_pct + 
-                    social_rented_pct +
-                    region_code +
-                    social_housing.affordability +
-                    homeowner.affordability +
-                    (1|LAD),
-                  data = df_full, family = binomial("logit"),
-                  control = glmerControl(optimizer = "bobyqa"))
-summary(immi_vot)
-
-# marginal effects
-marginals_vot <- margins(immi_vot, type = "response")
-summary(marginals_vot)
-
-saveRDS(immi_vot, file = "models/immi_vot_2024.RDS")
-
 # saving marginals -------------------------------------------------------
 
 write.csv(summary(marginals_glm), file = "tables/immi_int_marginals_2024.csv")
 write.csv(summary(marginals_log), file = "tables/immi_log_marginals_2024.csv")
 write.csv(summary(marginals_pri), file = "tables/immi_int_price_marginals_2024.csv")
 write.csv(summary(marginals_reg), file = "tables/immi_reg_marginals_2024.csv")
-write.csv(summary(marginals_ta), file = "tables/immi_ta_marginals_2024.csv")
-write.csv(summary(marginals_occ), file = "tables/immi_occ_marginals_2024.csv")
-write.csv(summary(marginals_vot), file = "tables/immi_vot_marginals_2024.csv")
 
 saveRDS(marginals_reg, file = "models/immi_reg_marginals_2024.RDS")
 
@@ -438,41 +309,14 @@ immi_pca <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
                   data = df_full, family = binomial("logit"),
                   control = glmerControl(optimizer = "bobyqa"))
 
+summary(immi_pca)
+
 marginals_pca <- margins(immi_pca, type = "response")
 summary(marginals_pca)
 saveRDS(immi_pca, file = "models/immi_pca_2024.RDS")
 write.csv(summary(marginals_pca), file = "tables/immi_pca_marginals_2024.csv")
 
 anova(immi_reg, immi_pca)
-
-vote_pca <- glmer(brexit_voter ~ social_housing + homeowner + private_renting +
-                    pc1 + pc2 +
-                    male +
-                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
-                    no_religion +
-                    age + income_full + uni_full +
-                    c1_c2 + d_e + non_uk_born +
-                    #non_uk_pct + 
-                    pop_density +
-                    over_65_pct + under_16_pct +
-                    degree_pct +
-                    social_rented_pct +
-                    region_code +
-                    social_housing.pc1 +
-                    homeowner.pc2 +
-                    (1|LAD),
-                  data = df_full, family = binomial("logit"),
-                  control = glmerControl(optimizer = "bobyqa"))
-
-marginals_vote_pca <- margins(vote_pca, type = "response")
-summary(marginals_vote_pca)
-saveRDS(vote_pca, file = "models/vote_pca_2024.RDS")
-write.csv(summary(marginals_vote_pca), file = "tables/immi_vote_pca_marginals_2024.csv")
-
-anova(immi_vot, vote_pca)
-
-saveRDS(marginals_pca, file = "models/immi_pca_marginals_2024.RDS")
-saveRDS(marginals_vote_pca, file = "models/immi_vote_pca_marginals_2024.RDS")
 
 # viz --------------------------------------------------------------------------
 
@@ -529,9 +373,6 @@ list(immi_reg, immi_pca) %>%
 list(immi_int, immi_log, immi_int_price) %>% 
   map(summ, digits = 3, re.variance = "var")
 
-list(immi_vot, vote_pca) %>% 
-  map(summ, digits = 3, re.variance = "var")
-
 margin_plot <- function(margins_obj, title_string){
   margins_obj %>% 
     summary() %>% 
@@ -550,7 +391,5 @@ margin_plot <- function(margins_obj, title_string){
 }
 
 margin_plot(marginals_glm, "No region")
-margin_plot(marginals_reg, "Model 3") + margin_plot(marginals_vot, "Model 3 - Reform voters only")
-ggsave("viz/robustness_ames_2024.png")
-margin_plot(marginals_pca, "Model 4") + margin_plot(marginals_vote_pca, "Model 4 - Reform voters only")
-ggsave("viz/robustness_ames_voter_2024.png")
+margin_plot(marginals_reg, "Model 3") 
+margin_plot(marginals_pca, "Model 4")

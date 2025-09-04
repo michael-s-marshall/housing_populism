@@ -76,6 +76,33 @@ p1 + p2
 ggsave("viz/pca_map.png",
        width = 25.5, height = 16.575, unit = "cm")
 
+# PCA quartiles map ----------------------------------------------------
+
+full_cart <- full_cart %>% 
+  mutate(pc1_quarts = cut_number(pc1, 4, labels = c("1st","2nd","3rd","4th")),
+         pc2_quarts = cut_number(pc2, 4, labels = c("1st","2nd","3rd","4th")))
+
+p3 <- full_cart %>% 
+  drop_na(pc1) %>% 
+  ggplot(aes(fill = pc1_quarts)) +
+  geom_sf() +
+  scale_fill_viridis_d() +
+  labs(fill = "PC1 Quartiles") +
+  theme_void()
+
+p4 <- full_cart %>%
+  drop_na(pc2) %>% 
+  ggplot(aes(fill = pc2_quarts)) +
+  geom_sf() +
+  scale_fill_viridis_d() +
+  labs(fill = "PC2 Quartiles") +
+  theme_void()
+
+p3 + p4
+
+ggsave("viz/pca_map_quartiles.png",
+       width = 25.5, height = 16.575, unit = "cm")
+
 # interaction plot from Adler and Ansell ---------------------------------------
 
 rm(list = ls())
