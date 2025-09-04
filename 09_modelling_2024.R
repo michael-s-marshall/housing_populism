@@ -118,6 +118,13 @@ df_full <- df_full %>%
          social_housing.prices = social_housing * prices,
          homeowner.prices = homeowner * prices)
 
+# null model
+immi_glmr <- glmer(brexit_party ~ (1|LAD),
+                   data = df_full, family = binomial("logit"),
+                   control = glmerControl(optimizer = "bobyqa"))
+
+summ(immi_glmr, digits = 3, re.variance = "var")
+logLik(immi_glmr)
 # demonstrating that non-UK percent more important than population density --------------------------------
 
 immi_test <- glmer(brexit_party ~ social_housing + homeowner + private_renting +

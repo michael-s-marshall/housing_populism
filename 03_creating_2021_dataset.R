@@ -214,6 +214,7 @@ summ_vars <- c("male","white_british","white_other","indian","chinese","black",
                "degree_pct_raw","affordability_raw","prices_raw","pop_density_raw",
                "homeowner_pct_raw","social_rented_pct_raw","non_uk_pct_raw", "churn_raw",
                "over_65_pct_raw","under_16_pct_raw","overoccupied_pct_raw","ta_rate_full_raw",
+               "underoccupied_pct_raw","claims_full_raw",
                "uni_full","income_full","immigSelf")
 
 summ_df <- dat |> 
