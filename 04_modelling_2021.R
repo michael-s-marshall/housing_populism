@@ -123,7 +123,10 @@ immi_fit <- lm(immigSelf ~ 1, data = df_full)
 # lmer null model
 immi_lmer <- lmer(immigSelf ~ (1|LAD), data = df_full, REML = F)
 
+summary(immi_lmer)
 summ(immi_lmer, re.variance = "var", digits = 3)
+
+confint(immi_lmer)
 
 get_icc <- function(lmer_obj){
   my_summ <- summary(lmer_obj)
@@ -331,25 +334,6 @@ immi_deg <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                  data = df_full, REML = FALSE)
 
 summary(immi_deg)
-
-tibble(
-  var = housing_vars,
-  no_degree_pct = fixef(immi_deg)[housing_vars],
-  incl_degree_pct = fixef(immi_reg)[housing_vars]
-) %>% 
-  pivot_longer(cols = no_degree_pct:incl_degree_pct,
-               names_to = "model",
-               values_to = "estimate") %>% 
-  filter(var != "(Intercept)") %>% 
-  ggplot(aes(x = estimate, y = var, colour = model)) +
-  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.5, 
-             colour = "lightgrey") +
-  geom_point(size = 3, position = position_dodgev(height = 0.5)) +
-  scale_colour_viridis_d() +
-  theme_bw() +
-  drop_y_gridlines()
-
-ggsave("viz/comparison_for_degree_pct.png")
 
 # visualising interaction term ------------------------------
 
@@ -697,6 +681,31 @@ bind_rows(
   labs(x = "Estimate", y = NULL)
 
 ggsave("viz/coef_plot_mods_2021.png")
+
+# viz comparing it to model minus degree % ---------------------------------
+
+deg_conf <- confint(immi_deg, method = "profile")
+
+bind_rows(
+  confint_clean(reg_conf, immi_reg) |> mutate(Model="Model 1"),
+  confint_clean(deg_conf, immi_deg) |> mutate(Model="Model 1 - Degree % omitted")
+) %>%  
+  filter(str_detect(term, "social_housing|homeowner$|affordability|private")) %>%  
+  left_join(combined_names, by = "term") %>% 
+  ggplot(aes(x = estimate, y = var_names, colour = Model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "lightgrey", 
+             linewidth = 1.25, alpha = 0.7) +
+  geom_linerange(aes(xmin = lower, xmax = upper),
+                 position = position_dodge(width = 0.4),
+                 linewidth = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.2,
+             position = position_dodge(width = 0.4)) +
+  theme_bw() +
+  drop_y_gridlines() +
+  scale_colour_viridis_d() +
+  labs(x = "Estimate", y = NULL)
+
+ggsave("viz/comparison_for_degree_pct.png")
 
 # margin plots -----------------------------------------------------------
 

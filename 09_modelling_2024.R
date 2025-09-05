@@ -116,7 +116,9 @@ df_full <- df_full %>%
          homeowner.pc2 = homeowner * pc2,
          social_housing.pc1 = social_housing * pc1,
          social_housing.prices = social_housing * prices,
-         homeowner.prices = homeowner * prices)
+         homeowner.prices = homeowner * prices,
+         social_housing.affordability_log = social_housing * affordability_log,
+         homeowner.affordability_log = homeowner * affordability_log)
 
 # null model
 immi_glmr <- glmer(brexit_party ~ (1|LAD),
@@ -125,6 +127,7 @@ immi_glmr <- glmer(brexit_party ~ (1|LAD),
 
 summ(immi_glmr, digits = 3, re.variance = "var")
 logLik(immi_glmr)
+
 # demonstrating that non-UK percent more important than population density --------------------------------
 
 immi_test <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
@@ -176,8 +179,10 @@ saveRDS(immi_int, file = "models/immi_int_2024.RDS")
 
 # robustness check - log scale -------------------------------------
 
-immi_log <- glmer(brexit_party ~ (social_housing * affordability_log) + 
-                   (homeowner * affordability_log) + 
+immi_log <- glmer(brexit_party ~ social_housing + affordability_log + 
+                   homeowner +
+                   social_housing.affordability_log +
+                   homeowner.affordability_log +
                    private_renting +
                    male +
                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +

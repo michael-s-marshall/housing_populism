@@ -284,7 +284,13 @@ dat %>%
   ggplot(aes(x = income_full)) +
   geom_histogram(bins = 15, colour = "red", alpha = 0) +
   geom_histogram(aes(x = income), colour = "black", bins = 15, alpha = 0) +
-  coord_cartesian(ylim = c(0,3100))
+  coord_cartesian(ylim = c(0,3100)) +
+  theme_classic() +
+  labs(title = "Imputed distribution of income BES Wave 22",
+       caption = "Black = observed distribution; Red = imputed distribution",
+       x = "Household income band")
+
+ggsave("viz/imputed_income_W22.png")
 
 saveRDS(income_preds_W22, file = "data/income_preds_W22.RDS")
 
