@@ -471,13 +471,20 @@ write.csv(pca_tab, file = "tables/pca_table_2021.csv")
 pca_dat$pc1 <- scale_this(pca_fit$x[,"PC1"])
 pca_dat$pc2 <- 0 - scale_this(pca_fit$x[,"PC2"])
 
-pca_dat %>% 
-  ggplot(aes(x = pc1)) +
-  geom_density()
+range(pca_dat$pc1)
+range(pca_dat$pc2)
 
 pca_dat %>% 
+  mutate(pc1_cut = cut_width(pc1, 1)) %>% 
+  ggplot(aes(x = pc1)) +
+  geom_histogram(aes(fill = pc1_cut), binwidth = 0.05, colour = "black") +
+  scale_fill_viridis_d()
+
+pca_dat %>% 
+  mutate(pc2_cut = cut_width(pc2, 1)) %>% 
   ggplot(aes(x = pc2)) +
-  geom_density()
+  geom_histogram(aes(fill = pc2_cut), binwidth = 0.05, colour = "black") +
+  scale_fill_viridis_d()
 
 dat <- dat %>% 
   left_join(pca_dat %>% select(la_code, pc1, pc2), by = "la_code")
