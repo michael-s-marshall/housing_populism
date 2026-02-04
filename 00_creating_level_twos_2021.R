@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, haven, caret, randomForest)
+pacman::p_load(tidyverse, haven, caret, randomForest, ggcorrplot)
 
 rm(list = ls())
 
@@ -457,5 +457,11 @@ cor_mat <- dat_raw |>
   round(2)
 
 cor_mat
+
+ggcorrplot(cor_mat,
+           hc.order = TRUE,
+           type = "lower",
+           outline.color = "white",
+           lab = TRUE)
 
 write.csv(cor_mat, "tables/cor_mat_2021.csv")
