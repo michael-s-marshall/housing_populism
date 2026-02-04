@@ -27,6 +27,8 @@ df <- df %>%
       "1" = c("4","5"),
       "0" = c("0","1","2","3")
     ),
+    uni = as.factor(case_when(uni == "1" ~ "yes", 
+                              uni == "0" ~ "no", .default = NA)),
     white_british = fct_lump_n(as.factor(p_ethnicity), n = 1) %>% 
       fct_recode("0" = "Other") %>% 
       as.character() %>% 
@@ -135,17 +137,24 @@ mod_dat <- mod_dat |> na.omit()
 
 class(df$uni)
 
+#mod_dat <- mod_dat |> sample_n(size = 500)
+
 # test and train: 0.9/0.1 ratio
 set.seed(123)
 train_set <- sample_frac(mod_dat, 0.9) %>% as.data.frame()
 test_set <- mod_dat %>% filter(!id %in% train_set$id) %>% as.data.frame()
 
-# Defining the training controls for multiple models -----------------------------
+# Defining the training controls -----------------------------
+
+set.seed(123)
+cv_folds <- createFolds(train_set$uni, k = 5, returnTrain = TRUE)
 
 fitControl <- trainControl(
   method = "cv",
   number = 5,
-  savePredictions = 'final'
+  savePredictions = 'final',
+  index = cv_folds,
+  classProbs = TRUE        # REQUIRED for probabilities
 )
 
 predictors <- c("full_time","edu_20plus","male","log_hh","unemployed","non_uk_born",
@@ -155,89 +164,110 @@ predictors <- c("full_time","edu_20plus","male","log_hh","unemployed","non_uk_bo
 
 outcome_name <- "uni"
 
-numerics <- c("log_hh","age_raw","age_raw_sq")
+predictors2 <- predictors[predictors != "region_fct"]
 
-x_trans <- preProcess(train_set[,numerics])
-train_set[,numerics] <- predict(x_trans, train_set[,numerics])
-test_set[,numerics] <- predict(x_trans, test_set[,numerics])
+x_trans <- preProcess(train_set[,predictors2])
+train_set[,predictors2] <- predict(x_trans, train_set[,predictors2])
+test_set[,predictors2] <- predict(x_trans, test_set[,predictors2])
 
 # training lower layer models -------------------------------------------------
 
-#Training the glm model
+# Training the glm model
+set.seed(123)
 model_lm <- train(train_set[,predictors],
                   train_set[,outcome_name],
                   method='glm',
                   family='binomial',
-                  trControl=fitControl)
+                  trControl=fitControl,
+                  metric = 'ROC')
 
 summary(model_lm)
-lm_preds <- as.factor(ifelse(predict(model_lm,type="prob")[,"1"]>0.5,"1","0"))
-confusionMatrix(train_set$uni, lm_preds)
 
-#Training the nn model
+# extract Out-of-Fold predictions 
+# access model$pred, sort by rowIndex, and extract the prediction
+lm_oof <- model_lm$pred %>% 
+  inner_join(model_lm$bestTune, by = names(model_lm$bestTune)) %>%
+  arrange(rowIndex)
+train_set$lm_prob <- lm_oof$yes
+
+# check to ensure alignment
+confusionMatrix(train_set$uni, lm_oof$pred)
+
+start_time <- Sys.time()
+
+# Training the nn model
 set.seed(123)
 model_nn <- train(train_set[,predictors],
                   train_set[,outcome_name],
                   method='nnet',
                   trControl=fitControl,
-                  tuneLength=5)
+                  tuneLength=5,
+                  trace = FALSE,
+                  metric = "ROC") # trace=FALSE to reduce console noise
 
-nn_preds <- predict(model_nn)
-confusionMatrix(train_set$uni, nn_preds)
+nn_oof <- model_nn$pred %>% 
+  inner_join(model_nn$bestTune, by = names(model_nn$bestTune)) %>%
+  arrange(rowIndex)
+train_set$nn_prob <- nn_oof$yes
 
-predictors2 <- predictors[predictors != "region_fct"]
+confusionMatrix(train_set$uni, nn_oof$pred)
 
-# train SVM model
+# train RF model
 set.seed(123)
-model_sv <- train(train_set[,predictors2],
+model_rf <- train(train_set[,predictors], 
                   train_set[,outcome_name],
-                  method='svmRadial',
+                  method='rf',
                   trControl=fitControl,
-                  tuneLength=3)
+                  tuneLength=3,  
+                  metric = "ROC")
 
-sv_preds <- predict(model_sv)
-confusionMatrix(train_set$uni, sv_preds)
+rf_oof <- model_rf$pred %>% 
+  inner_join(model_rf$bestTune, by = names(model_rf$bestTune)) %>%
+  arrange(rowIndex)
+train_set$rf_prob <- rf_oof$yes
 
-# training ensemble model
+confusionMatrix(train_set$uni, rf_oof$pred)
 
-train_set$lm_preds <- ifelse(lm_preds == "1", 1, 0)
-train_set$nn_preds <- ifelse(nn_preds == "1", 1, 0)
-train_set$sv_preds <- ifelse(sv_preds == "1", 1, 0)
-top_predictors <- c("lm_preds","nn_preds","sv_preds")
+# training ensemble model -----------------------------------------------------
+
+top_predictors <- c("lm_prob","nn_prob","rf_prob")
 
 set.seed(123)
-model_el <- train(train_set[,top_predictors],
+model_el <- train(train_set[,top_predictors], 
                   train_set[,outcome_name],
-                  method='svmRadial',
+                  method='nnet', 
                   trControl=fitControl,
-                  tuneLength=5)
+                  tuneLength=5,
+                  trace = FALSE)
 
+model_el
+
+end_time <- Sys.time()
+
+end_time - start_time
+
+# Check In-Sample Results
 el_preds <- predict(model_el)
 confusionMatrix(train_set$uni, el_preds)
 
-test_lm <- as.factor(ifelse(predict(model_lm,
-                                    newdata=test_set[,predictors],
-                                    type="prob")[,"1"]>0.5,"1","0"))
-test_nn <- predict(object = model_nn, newdata = test_set[,predictors])
-test_sv <- predict(object = model_sv, newdata = test_set[,predictors2])
+test_lm <- ifelse(predict(model_lm, newdata=test_set[,predictors], type="prob")[,"yes"]>0.5, "yes", "no")
+test_nn <- ifelse(predict(object = model_nn, newdata = test_set[,predictors])=="yes", "yes", "no")
+test_rf <- ifelse(predict(object = model_rf, newdata = test_set[,predictors])=="yes", "yes", "no")
 
-test_set$lm_preds <- ifelse(predict(model_lm,
-                                    newdata=test_set[,predictors],
-                                    type="prob")[,"1"]>0.5,
-                            1, 0)
-test_set$nn_preds <- ifelse(predict(object = model_nn, newdata = test_set[,predictors])=="1", 1, 0)
-test_set$sv_preds <- ifelse(predict(object = model_sv, newdata = test_set[,predictors2])=="1", 1, 0)
-
+# assign  probabilities to the test dataframe
+test_set$lm_prob <- predict(model_lm, newdata = test_set[,predictors], type = "prob")[,"yes"]
+test_set$nn_prob <- predict(model_nn, newdata = test_set[,predictors], type = "prob")[,"yes"]
+test_set$rf_prob <- predict(model_rf, newdata = test_set[,predictors], type = "prob")[,"yes"]
 test_el <- predict(object = model_el, newdata = test_set[,top_predictors])
 
-confusionMatrix(test_set$uni, test_lm)
-confusionMatrix(test_set$uni, test_nn)
-confusionMatrix(test_set$uni, test_sv)
-confusionMatrix(test_set$uni, test_el)
+confusionMatrix(test_set$uni, as.factor(test_lm))
+confusionMatrix(test_set$uni, as.factor(test_nn))
+confusionMatrix(test_set$uni, as.factor(test_rf))
+confusionMatrix(test_set$uni, as.factor(test_el))
 
 saveRDS(model_lm, file = "models/uni_2021/model_glm_W22.RDS")
 saveRDS(model_nn, file = "models/uni_2021/model_nn_W22.RDS")
-saveRDS(model_sv, file = "models/uni_2021/model_sv_W22.RDS")
+saveRDS(model_rf, file = "models/uni_2021/model_rf_W22.RDS")
 saveRDS(model_el, file = "models/uni_2021/model_el_W22.RDS")
 
 # preds for full dataset ---------------------------------------------------
@@ -253,8 +283,13 @@ pred_dat |> map_int(~sum(is.na(.)))
 
 pred_dat <- pred_dat |> na.omit()
 
-pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
-pred_dat$nn_uni_preds <- predict(object = model_nn, newdata = pred_dat[,predictors])
+pred_dat[,predictors2] <- predict(x_trans, pred_dat[,predictors2])
+pred_dat$lm_prob <- predict(model_lm, newdata = pred_dat[,predictors], type = "prob")[,"yes"]
+pred_dat$nn_prob <- predict(model_nn, newdata = pred_dat[,predictors], type = "prob")[,"yes"]
+pred_dat$rf_prob <- predict(model_rf, newdata = pred_dat[,predictors], type = "prob")[,"yes"]
+pred_dat$rf_uni_preds <- predict(object = model_rf, newdata = pred_dat[,predictors])
+
+fct_count(pred_dat$rf_uni_preds, prop = TRUE)
 
 saveRDS(pred_dat, "data/preds_uni_2021.RDS")
 

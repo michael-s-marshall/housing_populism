@@ -4,6 +4,11 @@ rm(list = ls())
 
 pacman::p_load(corrr, tidyverse)
 
+rmse <- function(y, yhat){
+  out <- sqrt(mean((y - yhat)^2))
+  return(out)
+}
+
 # importing and cleaning data -------------------------------------------------
 
 owners_21 <- read_csv("data/between_census/homeownership_2021.csv")
@@ -59,7 +64,12 @@ owners_full |>
   correlate()
 
 # lm regression
-(summary(lm(owned_pct_21 ~ owned_pct_11, data = owners_full)))
+owners_full2 <- owners_full |> na.omit()
+owned_lm <- lm(owned_pct_21 ~ owned_pct_11, data = owners_full2)
+summary(owned_lm)
+
+rmse(owners_full2$owned_pct_21, 
+     predict(owned_lm))
 
 # plot
 owners_full |> 
@@ -79,7 +89,12 @@ occ_full |>
   correlate()
 
 # lm regression
-(summary(lm(log(overcrowded_pct_21) ~ log(overcrowded_pct_11), data = occ_full)))
+occ_full2 <- occ_full |> na.omit()
+over_lm <- lm(overcrowded_pct_21 ~ overcrowded_pct_11, data = occ_full2)
+summary(over_lm)
+
+rmse(occ_full2$overcrowded_pct_21, 
+     predict(over_lm))
 
 # plot
 occ_full |> 
@@ -99,7 +114,11 @@ occ_full |>
   correlate()
 
 # lm regression
-(summary(lm(underoccupied_pct_21 ~ underoccupied_pct_11, data = occ_full)))
+under_lm <- lm(underoccupied_pct_21 ~ underoccupied_pct_11, data = occ_full2)
+summary(under_lm)
+
+rmse(occ_full2$underoccupied_pct_21, 
+     predict(under_lm))
 
 # plot
 occ_full |> 

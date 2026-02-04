@@ -79,10 +79,16 @@ dat <- edu %>%
 
 pop <- read_csv("data/population_data_2021.csv")
 
-pop <- pop %>% 
+pop <- pop |>  
   rename(la_code = Code,
-         pop_density = `2021 people per sq. km`) %>% 
-  select(la_code, pop_density)
+         pop_density = `2021 people per sq. km`,
+         pop_density_2011 = `2011 people per sq. km`)  |>  
+  mutate(pop_density_change = pop_density / pop_density_2011) |> 
+  select(la_code, pop_density, pop_density_change)
+
+pop |> 
+  ggplot(aes(x = pop_density_change)) +
+  geom_density()
 
 dat <- dat %>% 
   left_join(pop, by = "la_code")
@@ -225,21 +231,6 @@ sum_na(dat)
 
 which_na(dat, ta_rate)
 
-# possession claims ---------------------------------------------------------
-
-claims <- read_csv("data/possession_statistics_2021.csv")
-
-claims <- claims %>% 
-  rename(claims = map_2_landlord_possession_claims) %>% 
-  select(la_code, claims)
-
-dat <- dat %>% 
-  left_join(claims, by = "la_code")
-
-sum_na(dat)
-
-which_na(dat, claims)
-
 # region --------------------------------------------------------------------
 
 region <- read_csv("data/lasregionew2021lookup.csv")
@@ -262,31 +253,45 @@ fitControl <- trainControl(
   savePredictions = 'final'
 )
 
-predictors <- dat %>%
-  select(-la_code, -ta_rate, -affordability_log, -private_rented_pct, -churn, -claims) %>% 
-  names()
-
-outcome_name <- "ta_rate"
-
-train_dat <- dat %>% 
-  column_to_rownames("la_code") %>% 
-  as.data.frame() %>% 
+ta_dat <- dat %>%
+  select(-la_code, -affordability_log, -affordability, -private_rented_pct, -churn, -pop_density_change) %>% 
   na.omit()
 
-x_trans <- preProcess(train_dat[,predictors])
-train_dat[,predictors] <- predict(x_trans, train_dat[,predictors])
+ta_dat <- ta_dat |> 
+  bind_cols(as.data.frame(model.matrix(~region_code, data = ta_dat)[,-1])) |> 
+  select(-region_code)
+
+ta_predictors <- ta_dat %>%
+  select(-ta_rate)
+
+outcome <- ta_dat$ta_rate
+
+set.seed(123)
+in_train <- createDataPartition(outcome, p = 0.9, list = F)
+train_predictors <- ta_predictors[in_train,] |> as.data.frame()
+test_predictors <- ta_predictors[-in_train,] |> as.data.frame()
+train_outcome <- outcome[in_train]
+test_outcome <- outcome[-in_train]
+
+numerics <- train_predictors |> select(degree_pct:underoccupied_pct) |> names()
+
+# scaling and centering
+x_trans <- preProcess(train_predictors[,numerics])
+train_predictors[,numerics] <- predict(x_trans, train_predictors[,numerics])
+test_predictors[,numerics] <- predict(x_trans, test_predictors[,numerics])
+ta_predictors[,numerics] <- predict(x_trans, ta_predictors[,numerics])
 
 # training the lm model 
-model_lm <- train(train_dat[,predictors],
-                  train_dat[,outcome_name],
+model_lm <- train(train_predictors,
+                  train_outcome,
                   method= "lm",
                   trControl = fitControl)
 summary(model_lm)
 
 # training the random forest
 set.seed(123)
-model_rf <- train(train_dat[,predictors],
-                  train_dat[,outcome_name],
+model_rf <- train(train_predictors,
+                  train_outcome,
                   method = "rf",
                   trControl = fitControl,
                   tuneLength = 7)
@@ -295,8 +300,8 @@ model_rf
 
 # neural network
 set.seed(123)
-model_nn <- train(train_dat[,predictors],
-                  train_dat[,outcome_name],
+model_nn <- train(train_predictors,
+                  train_outcome,
                   method= "nnet",
                   trControl = fitControl,
                   linout = TRUE,
@@ -305,122 +310,73 @@ model_nn <- train(train_dat[,predictors],
 model_nn
 
 # ensemble 
-train_dat$lm_preds <- predict(model_lm, newdata = train_dat)
-train_dat$rf_preds <- predict(model_rf, newdata = train_dat)
-train_dat$nn_preds <- predict(model_nn, newdata = train_dat)
+test_predictors$pred_rf <- predict(object = model_rf, test_predictors)
+test_predictors$pred_lm <- predict(object = model_lm, test_predictors)
+test_predictors$pred_nn <- predict(object = model_nn, test_predictors)
 
-top_layer <- c("lm_preds","rf_preds","nn_preds")
+#Predicting the out of fold prediction non-decent % for training data
+train_predictors$OOF_pred_rf <- model_rf$pred$pred[order(model_rf$pred$rowIndex)]
+train_predictors$OOF_pred_lm <- model_lm$pred$pred[order(model_lm$pred$rowIndex)]
+train_predictors$OOF_pred_nn <- model_nn$pred$pred[order(model_nn$pred$rowIndex)]
+
+#Predicting non-decent % for the test data
+test_predictors$OOF_pred_rf <- predict(model_rf, test_predictors)
+test_predictors$OOF_pred_lm <- predict(model_lm, test_predictors)
+test_predictors$OOF_pred_nn <- predict(model_nn, test_predictors)
+
+
+top_layer <- c('OOF_pred_rf', 'OOF_pred_lm', 'OOF_pred_nn')
 
 set.seed(123)
-model_en <- train(train_dat[,top_layer],
-                  train_dat[,outcome_name],
+model_en <- train(train_predictors[,top_layer],
+                  train_outcome,
                   method = "nnet",
                   linout = TRUE,
                   trControl = fitControl,
                   tuneLength = 3)
 model_en
 
-dat2 <- dat %>% drop_na(affordability)
-dat2[,predictors] <- predict(x_trans, dat2[,predictors])
-dat2$lm_preds <- predict(model_lm, newdata = dat2)
-dat2$rf_preds <- predict(model_rf, newdata = dat2) 
-dat2$nn_preds <- predict(model_nn, newdata = dat2)
-dat2$ta_preds <- predict(model_en, newdata = dat2)
+test_predictors$pred_en <- predict(model_en, test_predictors)
 
-dat2 %>% 
-  ggplot(aes(x = ta_preds, y = ta_rate)) +
-  geom_point(alpha = 0.5) +
+sqrt(mean((test_outcome - test_predictors$pred_rf)^2))
+sqrt(mean((test_outcome - test_predictors$pred_lm)^2))
+sqrt(mean((test_outcome - test_predictors$pred_nn)^2))
+sqrt(mean((test_outcome - test_predictors$pred_en)^2))
+
+train_predictors$pred_en <- predict(model_en, train_predictors)
+
+ggplot(data = NULL) +
+  geom_density(aes(x = train_outcome)) +
+  geom_density(aes(x = train_predictors$pred_en),
+               colour = "red")
+
+ggplot(data = NULL) +
+  geom_density(aes(x = test_outcome)) +
+  geom_density(aes(x = test_predictors$pred_en),
+               colour = "red")
+
+pred_dat <- dat %>%
+  select(-la_code, -affordability_log, -affordability, -private_rented_pct, -churn) %>%
+  bind_cols(as.data.frame(model.matrix(~region_code, data = dat)[,-1]))
+
+pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
+
+pred_dat$OOF_pred_rf <- predict(model_rf, pred_dat)
+pred_dat$OOF_pred_lm <- predict(model_lm, pred_dat)
+pred_dat$OOF_pred_nn <- predict(model_nn, pred_dat)
+pred_dat$en_preds <- predict(model_en, pred_dat)
+pred_dat$ta_preds <- predict(model_rf, pred_dat)
+
+ggplot(data = NULL, 
+       aes(x = pred_dat$ta_preds, y = dat$ta_rate)) +
+  geom_point() +
   geom_smooth()
 
-dat2 %>% 
-  select(ta_preds, ta_rate) %>% 
-  corrr::correlate()
+cor.test(pred_dat$ta_preds, dat$ta_rate)
+(summary(lm(pred_dat$ta_rate ~ poly(pred_dat$ta_preds,3))))
 
 dat <- dat %>% 
-  left_join(dat2 %>% select(la_code, ta_preds), by = "la_code") %>% 
-  mutate(ta_rate_full = ifelse(is.na(ta_rate), ta_preds, ta_rate))
-
-sum_na(dat)
-
-# imputing claims ------------------------------------------------------
-
-predictors2 <- dat %>%
-  select(-la_code, -ta_rate, -affordability_log, -private_rented_pct, -churn, -claims, -ta_preds, -ta_rate_full) %>% 
-  names()
-
-outcome_name2 <- "claims"
-
-train_dat2 <- dat %>% 
-  column_to_rownames("la_code") %>% 
-  as.data.frame() %>% 
-  na.omit()
-
-x_trans2 <- preProcess(train_dat2[,predictors2])
-train_dat2[,predictors2] <- predict(x_trans2, train_dat2[,predictors2])
-
-# training the lm model 
-model_lm2 <- train(train_dat2[,predictors2],
-                   train_dat2[,outcome_name2],
-                   method= "lm",
-                   trControl = fitControl)
-summary(model_lm2)
-
-# training the random forest
-set.seed(123)
-model_rf2 <- train(train_dat2[,predictors2],
-                   train_dat2[,outcome_name2],
-                   method = "rf",
-                   trControl = fitControl,
-                   tuneLength = 7)
-
-model_rf2
-
-# neural network
-set.seed(123)
-model_nn2 <- train(train_dat2[,predictors2],
-                   train_dat2[,outcome_name2],
-                   method= "nnet",
-                   trControl = fitControl,
-                   linout = TRUE,
-                   tuneLength = 7)
-
-model_nn2
-
-# ensemble 
-train_dat2$lm_preds <- predict(model_lm2, newdata = train_dat2)
-train_dat2$rf_preds <- predict(model_rf2, newdata = train_dat2)
-train_dat2$nn_preds <- predict(model_nn2, newdata = train_dat2)
-
-set.seed(123)
-model_en2 <- train(train_dat2[,top_layer],
-                   train_dat2[,outcome_name2],
-                   method = "nnet",
-                   linout = TRUE,
-                   trControl = fitControl,
-                   tuneLength = 7)
-model_en2
-
-dat3 <- dat %>% drop_na(affordability)
-dat3[,predictors2] <- predict(x_trans2, dat3[,predictors2])
-dat3$lm_preds <- predict(model_lm2, newdata = dat3)
-dat3$rf_preds <- predict(model_rf2, newdata = dat3) 
-dat3$nn_preds <- predict(model_nn2, newdata = dat3)
-dat3$claims_preds <- predict(model_en2, newdata = dat3)
-
-dat3 %>% 
-  ggplot(aes(x = claims_preds, y = claims)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth()
-
-dat3 %>% 
-  select(claims_preds, claims) %>% 
-  corrr::correlate()
-
-dat <- dat %>% 
-  left_join(dat3 %>% select(la_code, claims_preds), by = "la_code") %>% 
-  mutate(claims_full = ifelse(is.na(claims), claims_preds, claims))
-
-sum_na(dat)
+  mutate(ta_rate_full = ifelse(is.na(ta_rate), pred_dat$ta_preds, ta_rate))
 
 # scaling ---------------------------------------
 
@@ -437,7 +393,7 @@ dat[to_scale] <- dat[to_scale] %>%
 
 pca_dat <- dat |> 
   select(la_code, affordability, homeowner_pct, ta_rate_full, 
-         overoccupied_pct, underoccupied_pct, claims_full) %>% 
+         overoccupied_pct, underoccupied_pct) %>% 
   na.omit()
 
 pca_mat <- pca_dat %>% 
@@ -462,8 +418,7 @@ pca_tab <- pca_fit$rotation %>%
                PC2 = var_explained[2],
                PC3 = var_explained[3],
                PC4 = var_explained[4],
-               PC5 = var_explained[5],
-               PC6 = var_explained[6])
+               PC5 = var_explained[5])
   )
 
 write.csv(pca_tab, file = "tables/pca_table_2021.csv")
@@ -491,3 +446,16 @@ dat <- dat %>%
 
 saveRDS(dat_raw, "data/level_two_vars_2021_raw.RDS")
 saveRDS(dat, "data/level_two_vars_2021.RDS")
+
+# correlation matrix -------------------------------------
+
+cor_mat <- dat_raw |> 
+  select(degree_pct, affordability, prices:homeowner_pct,
+         social_rented_pct:under_16_pct,
+         overoccupied_pct, underoccupied_pct, ta_rate_full) |> 
+  cor(use = "complete.obs") |> 
+  round(2)
+
+cor_mat
+
+write.csv(cor_mat, "tables/cor_mat_2021.csv")

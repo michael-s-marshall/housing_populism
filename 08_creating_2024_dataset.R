@@ -200,11 +200,14 @@ uni_preds <- readRDS("data/preds_uni_2024.RDS")
 dat <- dat %>% 
   left_join(income_preds %>% select(id, pred_el_round), by = "id") %>% 
   left_join(income_preds_knn %>% select(id, income_knn), by = "id") %>% 
-  left_join(uni_preds %>% select(id, nn_uni_preds), by = "id") %>% 
+  left_join(uni_preds %>% select(id, el_uni_preds), by = "id") %>% 
   mutate(
+    el_uni_preds = case_when(el_uni_preds == "yes" ~ 1, 
+                             el_uni_preds == "no" ~ 0,
+                             .default = NA),
     income_full = ifelse(is.na(income), pred_el_round, income),
     income_full_knn = ifelse(is.na(income), income_knn, income),
-    uni_full = ifelse(is.na(uni), nn_uni_preds, uni)
+    uni_full = ifelse(is.na(uni), el_uni_preds, uni)
   )
 
 sum_na(dat)
@@ -220,9 +223,10 @@ summ_vars <- c("male","white_british","white_other","indian","chinese","black",
                "own_outright","own_mortgage","social_housing","private_renting",
                "homeowner","no_religion","age_raw","non_uk_born",
                "degree_pct_raw","affordability_raw","prices_raw","pop_density_raw","churn_raw",
+               "pop_density_change_raw",
                "homeowner_pct_raw","social_rented_pct_raw","non_uk_pct_raw",
                "over_65_pct_raw","under_16_pct_raw","overoccupied_pct_raw","ta_rate_full_raw",
-               "underoccupied_pct_raw","claims_full_raw",
+               "underoccupied_pct_raw",
                "uni_full","income_full","brexit_party")
 
 summ_df <- dat |> 

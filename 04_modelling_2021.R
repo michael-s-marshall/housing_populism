@@ -84,9 +84,8 @@ df_full <- dat %>%
          -full_time, -education_age, -log_hh, -disabled, -unemployed,
          -part_time, -log_age, 
          -region_fct, -e, -d, -c1, -c2, -b, -cohabiting, -edu_20plus,
-         -nn_uni_preds, -pred_el_round, -income_knn,
-         -ta_rate, -ta_preds_raw, -ta_preds,
-         -claims, -claims_preds, -claims_raw, -claims_preds_raw) %>% 
+         -rf_uni_preds, -pred_el_round, -income_knn,
+         -ta_rate) %>% 
   rename(LAD = la_code)
 
 sum_na(df_full)
@@ -125,8 +124,6 @@ immi_lmer <- lmer(immigSelf ~ (1|LAD), data = df_full, REML = F)
 
 summary(immi_lmer)
 summ(immi_lmer, re.variance = "var", digits = 3)
-
-confint(immi_lmer)
 
 get_icc <- function(lmer_obj){
   my_summ <- summary(lmer_obj)
@@ -183,7 +180,7 @@ immi_test <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                     no_religion + 
                     age + income_full + uni_full +
                     c1_c2 + d_e + non_uk_born + 
-                    non_uk_pct + pop_density +
+                    non_uk_pct + pop_density + pop_density_change +
                     over_65_pct + under_16_pct + 
                     degree_pct + 
                     #homeowner_pct + 
@@ -195,25 +192,42 @@ immi_test <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                   data = df_full, REML = FALSE)
 summary(immi_test)
 
+immi_test2 <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
+                     affordability +
+                     male +
+                     white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+                     no_religion +
+                     age + income_full + uni_full +
+                     c1_c2 + d_e + non_uk_born +
+                     non_uk_pct + pop_density_change + #pop_density +
+                     over_65_pct + under_16_pct +
+                     degree_pct +
+                     #homeowner_pct +
+                     social_rented_pct +
+                     social_housing.affordability +
+                     homeowner.affordability +
+                     (1|LAD),
+                   data = df_full, REML = FALSE)
+summary(immi_test2)
+
 immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    affordability +
-                   male + 
-                   white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
-                   no_religion + 
+                   male +
+                   white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+                   no_religion +
                    age + income_full + uni_full +
-                   c1_c2 + d_e + non_uk_born + 
-                   non_uk_pct + #pop_density +
-                   over_65_pct + under_16_pct + 
-                   degree_pct + 
-                   #homeowner_pct + 
+                   c1_c2 + d_e + non_uk_born +
+                   non_uk_pct + #pop_density_change + #pop_density +
+                   over_65_pct + under_16_pct +
+                   degree_pct +
+                   #homeowner_pct +
                    social_rented_pct +
-                   social_housing.affordability + 
+                   social_housing.affordability +
                    homeowner.affordability +
                    (1|LAD),
                  data = df_full, REML = FALSE)
-summary(immi_int)
 
-anova(immi_test, immi_int)
+anova(immi_test2, immi_int)
 
 # diagnostics -----------------------------------------------------------------
 
@@ -455,59 +469,6 @@ int_plot
 
 ggsave("viz/interaction_plot_2021.png")
 
-# housing stress measures ------------------------------------------------------
-
-df_full <- df_full %>% 
-  mutate(
-    social_housing.ta_rate_full = social_housing * ta_rate_full,
-    social_housing.overoccupied_pct = social_housing * overoccupied_pct
-  )
-
-immi_ta <- lmer(immigSelf ~ social_housing + ta_rate_full +
-                  social_housing.ta_rate_full +
-                  homeowner + affordability +
-                  homeowner.affordability +
-                  private_renting +
-                  male + 
-                  white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
-                  no_religion + 
-                  age + income_full + uni_full +
-                  c1_c2 + d_e + non_uk_born + 
-                  non_uk_pct + #pop_density +
-                  over_65_pct + under_16_pct + 
-                  degree_pct + 
-                  #homeowner_pct + 
-                  social_rented_pct +
-                  region_code +
-                  (1|LAD),
-                data = df_full, REML = FALSE)
-summary(immi_ta)
-
-anova(immi_reg, immi_ta)
-
-# overoccupying
-immi_occ <- lmer(immigSelf ~ social_housing + overoccupied_pct +
-                   social_housing.overoccupied_pct +
-                   homeowner + affordability +
-                   homeowner.affordability + 
-                   private_renting +
-                   male + 
-                   white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
-                   no_religion + 
-                   age + income_full + uni_full +
-                   c1_c2 + d_e + non_uk_born + 
-                   non_uk_pct + #pop_density +
-                   over_65_pct + under_16_pct + 
-                   degree_pct + 
-                   #homeowner_pct + 
-                   social_rented_pct +
-                   region_code +
-                   (1|LAD),
-                 data = df_full, REML = FALSE)
-summary(immi_occ)
-
-anova(immi_reg, immi_occ)
-
 # KNN imputation of income ------------------------------------------------
 
 immi_knn <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
@@ -587,9 +548,9 @@ immi_pca <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
 
 summary(immi_pca)
 
-anova(immi_pca, immi_reg, immi_occ, immi_ta)
+anova(immi_pca, immi_reg)
 
-AIC(immi_pca, immi_reg, immi_occ, immi_ta)
+AIC(immi_pca, immi_reg)
 
 saveRDS(immi_pca, file = "models/immi_pca_2021.RDS")
 

@@ -70,9 +70,8 @@ df_full <- dat %>%
          -full_time, -education_age, -log_hh, -disabled, -unemployed,
          -part_time, -log_age, -churn, -churn_raw,
          -region_fct, -e, -d, -c1, -c2, -b, -cohabiting, -edu_20plus,
-         -nn_uni_preds, -pred_el_round, -income_knn,
-         -ta_rate, -ta_preds_raw, -ta_preds,
-         -claims, -claims_raw, -claims_preds, -claims_preds_raw, -claims_full_raw) %>% 
+         -el_uni_preds, -pred_el_round, -income_knn,
+         -ta_rate) %>% 
   rename(LAD = la_code)
 
 sum_na(df_full)
@@ -137,7 +136,7 @@ immi_test <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
                      no_religion +
                      age + income_full + uni_full +
                      c1_c2 + d_e + non_uk_born +
-                     non_uk_pct + pop_density +
+                     non_uk_pct + pop_density + pop_density_change +
                      over_65_pct + under_16_pct +
                      degree_pct +
                      social_rented_pct +
@@ -156,7 +155,7 @@ immi_int <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
                     age + income_full + uni_full +
                     c1_c2 + d_e + non_uk_born +
                     #non_uk_pct + 
-                    pop_density +
+                    pop_density + #pop_density_change +
                     over_65_pct + under_16_pct +
                     degree_pct +
                     #homeowner_pct + 
