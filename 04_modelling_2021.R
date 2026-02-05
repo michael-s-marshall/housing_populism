@@ -151,7 +151,9 @@ df_full <- df_full %>%
   mutate(social_housing.affordability = social_housing * affordability,
          homeowner.affordability = homeowner * affordability,
          social_housing.pc1 = social_housing * pc1,
-         homeowner.pc2 = homeowner * pc2)
+         homeowner.pc2 = homeowner * pc2,
+         social_housing.rent = social_housing * rent,
+         homeowner.rent = homeowner * rent)
 
 immi_hypot <- lmer(immigSelf ~ homeowner.affordability +
                      homeowner + affordability +
@@ -348,6 +350,30 @@ immi_deg <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                  data = df_full, REML = FALSE)
 
 summary(immi_deg)
+
+# rents --------------------------------------------------------------------
+
+immi_rent <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
+                    rent +
+                    male +
+                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+                    no_religion +
+                    age + income_full + uni_full +
+                    c1_c2 + d_e + non_uk_born +
+                    non_uk_pct + #pop_density_change + #pop_density +
+                    over_65_pct + under_16_pct +
+                    degree_pct +
+                    #homeowner_pct +
+                    social_rented_pct +
+                    social_housing.rent +
+                    homeowner.rent +
+                    region_code +
+                    (1|LAD),
+                  data = df_full, REML = FALSE)
+
+summary(immi_rent)
+
+anova(immi_reg, immi_rent)
 
 # visualising interaction term ------------------------------
 

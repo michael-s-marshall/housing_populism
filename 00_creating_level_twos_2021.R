@@ -378,6 +378,51 @@ cor.test(pred_dat$ta_preds, dat$ta_rate)
 dat <- dat %>% 
   mutate(ta_rate_full = ifelse(is.na(ta_rate), pred_dat$ta_preds, ta_rate))
 
+# rents ----------------------------------------------------
+
+rents <- read_csv("data/rent_index.csv", na = c("[z]","[x]"))
+
+rents <- rents |>
+  filter(`Time period` == "Dec-2021") |>
+  rename(la_code = `Area code`,
+         rent = `Rental price`) |>
+  select(la_code, rent)
+
+rents$la_code[rents$la_code == "E08000038"] <- "E08000016" # barnsley
+
+rents$la_code[rents$la_code == "E08000039"] <- "E08000019" # sheffield
+
+rents |>
+  ggplot(aes(x = rent)) +
+  geom_density()
+
+rents |>
+  ggplot(aes(x = log(rent))) +
+  geom_density()
+
+rents$rent <- log(rents$rent)
+
+dat |> 
+  left_join(rents, by = "la_code") |> 
+  which_na(rent)
+
+# la reconciliation
+la_recon <- read_csv("data/la_reconciliation.csv")
+
+# applying the new combined authority average rent to the old authorities 
+rents <- rents |> 
+  left_join(la_recon |> select(la_code, old_code),
+            by = "la_code") |> 
+  mutate(la_code = case_when(
+    is.na(old_code) ~ la_code,
+    .default = old_code)
+  ) |>
+  select(la_code, rent)
+
+dat <- dat |> left_join(rents, by = "la_code")
+
+dat |> sum_na()
+
 # scaling ---------------------------------------
 
 to_scale <- dat %>% select_if(is.numeric) %>% names()
@@ -393,7 +438,7 @@ dat[to_scale] <- dat[to_scale] %>%
 
 pca_dat <- dat |> 
   select(la_code, affordability, homeowner_pct, ta_rate_full, 
-         overoccupied_pct, underoccupied_pct) %>% 
+         overoccupied_pct, underoccupied_pct, rent) %>% 
   na.omit()
 
 pca_mat <- pca_dat %>% 
@@ -418,7 +463,8 @@ pca_tab <- pca_fit$rotation %>%
                PC2 = var_explained[2],
                PC3 = var_explained[3],
                PC4 = var_explained[4],
-               PC5 = var_explained[5])
+               PC5 = var_explained[5],
+               PC6 = var_explained[6])
   )
 
 write.csv(pca_tab, file = "tables/pca_table_2021.csv")
@@ -450,7 +496,7 @@ saveRDS(dat, "data/level_two_vars_2021.RDS")
 # correlation matrix -------------------------------------
 
 cor_mat <- dat_raw |> 
-  select(degree_pct, affordability, prices:homeowner_pct,
+  select(degree_pct, rent, affordability, prices:homeowner_pct,
          social_rented_pct:under_16_pct,
          overoccupied_pct, underoccupied_pct, ta_rate_full) |> 
   cor(use = "complete.obs") |> 
