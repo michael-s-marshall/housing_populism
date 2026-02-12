@@ -376,7 +376,10 @@ summary(marginals_reg) %>%
   scale_colour_viridis_d() +
   labs(x = "Average Marginal Effect", y = NULL)
 
-ggsave("viz/ame_plot_mods_2024.png")
+ggsave("viz/ame_plot_mods_2024.png",
+       units = "px",
+       width = 3796,
+       height = 2309)
 
 list(immi_reg, immi_pca) %>% 
   map(summ, digits = 3, re.variance = "var")

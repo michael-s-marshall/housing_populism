@@ -496,9 +496,13 @@ saveRDS(dat, "data/level_two_vars_2021.RDS")
 # correlation matrix -------------------------------------
 
 cor_mat <- dat_raw |> 
-  select(degree_pct, rent, affordability, prices:homeowner_pct,
+  select(la_code, degree_pct, rent, affordability, 
+         prices:homeowner_pct,
          social_rented_pct:under_16_pct,
-         overoccupied_pct, underoccupied_pct, ta_rate_full) |> 
+         overoccupied_pct, underoccupied_pct, ta_rate_full) |>
+  left_join(dat[,c("la_code","pc1","pc2")],
+            by = "la_code") |> 
+  select(-la_code) |> 
   cor(use = "complete.obs") |> 
   round(2)
 
