@@ -667,7 +667,10 @@ bind_rows(
   scale_colour_viridis_d() +
   labs(x = "Estimate", y = NULL)
 
-ggsave("viz/coef_plot_mods_2021.png")
+ggsave("viz/coef_plot_mods_2021.png",
+       units = "px",
+       width = 3796,
+       height = 2309)
 
 # viz comparing it to model minus degree % ---------------------------------
 
