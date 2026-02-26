@@ -330,10 +330,8 @@ top_layer <- c('OOF_pred_rf', 'OOF_pred_lm', 'OOF_pred_nn')
 set.seed(123)
 model_en <- train(train_predictors[,top_layer],
                   train_outcome,
-                  method = "nnet",
-                  linout = TRUE,
-                  trControl = fitControl,
-                  tuneLength = 3)
+                  method = "lm",
+                  trControl = fitControl)
 model_en
 
 test_predictors$pred_en <- predict(model_en, test_predictors)
@@ -348,12 +346,17 @@ train_predictors$pred_en <- predict(model_en, train_predictors)
 ggplot(data = NULL) +
   geom_density(aes(x = train_outcome)) +
   geom_density(aes(x = train_predictors$pred_en),
-               colour = "red")
+               colour = "red") +
+  geom_density(aes(x = train_predictors$OOF_pred_rf),
+               colour = "blue")
+
 
 ggplot(data = NULL) +
   geom_density(aes(x = test_outcome)) +
   geom_density(aes(x = test_predictors$pred_en),
-               colour = "red")
+               colour = "red") +
+  geom_density(aes(x = test_predictors$pred_rf),
+               colour = "blue") 
 
 pred_dat <- dat %>%
   select(-la_code, -affordability_log, -affordability, -private_rented_pct, -churn) %>%
