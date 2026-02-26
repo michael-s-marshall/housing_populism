@@ -85,12 +85,12 @@ df_full <- dat %>%
          -part_time, -log_age, 
          -region_fct, -e, -d, -c1, -c2, -b, -cohabiting, -edu_20plus,
          -rf_uni_preds, -pred_el_round, -income_knn,
-         -ta_rate) %>% 
+         -ta_rate, -ta_rate_raw) %>% 
   rename(LAD = la_code)
 
 sum_na(df_full)
 
-level_2s <- df_full |> select(degree_pct:ta_rate_full_raw) |> names()
+level_2s <- df_full |> select(degree_pct:underoccupied_pct_raw,ta_rate_full_raw) |> names()
 
 full_ns <- nrow(df_full)
 
@@ -308,6 +308,9 @@ immi_reg <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
 summary(immi_reg)
 
 anova(immi_int, immi_reg) 
+
+saveRDS(immi_reg, file = "models/immi_reg_2021.RDS")
+write.csv(broom.mixed::tidy(immi_reg), "models/immi_reg_2021_coefficients.csv")
 
 # incl. region makes very little difference to estimates
 housing_vars <- c("affordability","homeowner","social_housing",
