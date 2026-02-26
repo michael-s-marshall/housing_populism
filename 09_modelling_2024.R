@@ -76,7 +76,7 @@ df_full <- dat %>%
 
 sum_na(df_full)
 
-level_2s <- df_full |> select(degree_pct:ta_rate_full_raw) |> names()
+level_2s <- df_full |> select(degree_pct:underoccupied_pct_raw,ta_rate_full_raw) |> names()
 
 full_ns <- nrow(df_full)
 
@@ -86,7 +86,7 @@ full_ns - nrow(df_full)
 sub_ns <- nrow(df_full)
 
 these_vars <- df_full %>% 
-  select(-income, -uni) %>% 
+  select(-income, -uni, -ta_rate_raw) %>% 
   names()
 
 sum_na(df_full)
