@@ -14,3 +14,6 @@ system("Rscript 08_creating_2024_dataset.R")
 system("Rscript 09_modelling_2024.R")
 
 system("Rscript 10_maps.R")
+
+system("Rscript 12_between_census_comparisons.R")
+system("Rscript 13_multiple_imputation.R")
