@@ -92,7 +92,9 @@ these_vars <- df_full %>%
 sum_na(df_full)
 
 df_full <- df_full %>% 
-  drop_na(all_of(these_vars))
+  drop_na(all_of(these_vars)) |> 
+  mutate(income_full = scale_this(income_full),
+         income_full_knn = scale_this(income_full_knn))
 
 sub_ns - nrow(df_full)
 
@@ -127,8 +129,51 @@ immi_glmr <- glmer(brexit_party ~ (1|LAD),
 summ(immi_glmr, digits = 3, re.variance = "var")
 logLik(immi_glmr)
 
-# demonstrating that non-UK percent more important than population density --------------------------------
+# homeowner only interaction
+immi_hypot <- glmer(brexit_party ~ homeowner.affordability +
+                      homeowner + affordability +
+                      (1|LAD),
+                    data = df_full, family = binomial("logit"),
+                    control = glmerControl(optimizer = "bobyqa"))
 
+summary(immi_hypot)
+
+immi_hypot_sh <- glmer(brexit_party ~ homeowner.affordability +
+                         homeowner + social_housing.affordability +
+                         social_housing +
+                         affordability +
+                         (1|LAD),
+                       data = df_full, family = binomial("logit"),
+                       control = glmerControl(optimizer = "bobyqa"))
+
+summary(immi_hypot_sh)
+
+# improvement in model fit is significant
+anova(immi_hypot, immi_hypot_sh)
+
+# level 1 only ----------------------------------------------------------------
+
+immi_lvl1 <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
+                     affordability +
+                     male +
+                     white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+                     no_religion +
+                     age + income_full + uni_full +
+                     c1_c2 + d_e + non_uk_born +
+                     social_housing.affordability +
+                     homeowner.affordability +
+                     (1|LAD),
+                   data = df_full, family = binomial("logit"),
+                   control = glmerControl(optimizer = "bobyqa"))
+
+summary(immi_lvl1)
+
+anova(immi_hypot_sh, immi_lvl1)
+
+# adding level 2s  --------------------------------------------------------
+
+# adding level 2s - and showing that population density improves fit relative to non_uk_pct
+# also showing that pop_density_change does not improve model fit
 immi_test <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
                      affordability +
                      male +
@@ -158,7 +203,6 @@ immi_int <- glmer(brexit_party ~ social_housing + homeowner + private_renting +
                     pop_density + #pop_density_change +
                     over_65_pct + under_16_pct +
                     degree_pct +
-                    #homeowner_pct + 
                     social_rented_pct +
                     social_housing.affordability +
                     homeowner.affordability +
