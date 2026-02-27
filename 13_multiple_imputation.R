@@ -178,6 +178,10 @@ ggmice(imp_mice, aes(x = .imp, y = social_housing.affordability)) +
 ggmice(imp_mice, aes(x = social_housing.affordability, group = .imp)) +
   geom_density()
 
+# scaling ---------------------------------------------------------------------
+
+imp_mice$imp$income <- as.data.frame(map_df(imp_mice$imp$income, scale_this))
+
 # lmer -------------------------------------------------------------------------
 
 # Fit the multilevel regression to each of the imputed datasets
@@ -221,6 +225,8 @@ coef_names <- tibble(
             "Affordability ratio X Social housing", "Affordability ratio X homeowner", "Household income", "Education: Degree", NA, NA)
   )
 
+pacman::p_load(ggh4x)
+
 summary(pooled_results) |> 
   as_tibble() |> 
   select(term, estimate, p.value) |> 
@@ -231,7 +237,11 @@ summary(pooled_results) |>
     sig = case_when(p.value < 0.001 ~ "<0.001",
                     p.value < 0.01 ~ "<0.01",
                     p.value < 0.05 ~ "<0.05",
-                    .default = "Not Sig.")
+                    .default = "Not Sig."),
+    housing_vars = case_when(str_detect(coef_names, "housing$|Housing|Home|renting|home|Afford") ~ "Housing variables",
+                             .default = "Controls"),
+    housing_vars = fct_relevel(as.factor(housing_vars),
+                               "Housing variables")
     ) |> 
   filter(!str_detect(term,"(Intercept)|Observation")) |>
   na.omit() |> 
@@ -241,9 +251,10 @@ summary(pooled_results) |>
              position = position_dodge(width = 0.4)) +
   scale_colour_viridis_d() +
   scale_shape_manual(values = c(15,17,18,19)) +
+  facet_wrap(~housing_vars, ncol = 1, scales = "free_y") +
+  force_panelsizes(rows = unit(c(3.5,12.5), "cm"), TRUE) +
   theme_bw() +
-  labs(x = "Estimate", y = NULL, colour = "Model", shape = "Significance") +
-  theme(panel.grid.major.y = element_blank())
+  labs(x = "Estimate", y = NULL, colour = "Model", shape = "Significance")
 
 ggsave("viz/imputation_comparison_2021.png",
        units = "px",
@@ -429,6 +440,10 @@ ggmice(imp_mice, aes(x = social_housing, group = .imp)) +
 ggmice(imp_mice, aes(x = social_housing.pc1, group = .imp)) +
   geom_density()
 
+# scaling ---------------------------------------------------------------------
+
+imp_mice$imp$income <- as.data.frame(map_df(imp_mice$imp$income, scale_this))
+
 # lmer -------------------------------------------------------------------------
 
 # Fit the multilevel regression to each of the imputed datasets
@@ -482,7 +497,11 @@ summary(pooled_results) |>
     sig = case_when(p.value < 0.001 ~ "<0.001",
                     p.value < 0.01 ~ "<0.01",
                     p.value < 0.05 ~ "<0.05",
-                    .default = "Not Sig.")
+                    .default = "Not Sig."),
+    housing_vars = case_when(str_detect(coef_names, "housing$|Housing|Home|renting|home|PC1|PC2") ~ "Housing variables",
+                             .default = "Controls"),
+    housing_vars = fct_relevel(as.factor(housing_vars),
+                               "Housing variables")
   ) |> 
   filter(!str_detect(term,"(Intercept)|Observation")) |>
   na.omit() |> 
@@ -492,9 +511,10 @@ summary(pooled_results) |>
              position = position_dodge(width = 0.4)) +
   scale_colour_viridis_d() +
   scale_shape_manual(values = c(15,17,18,19)) +
+  facet_wrap(~housing_vars, ncol = 1, scales = "free_y") +
+  force_panelsizes(rows = unit(c(3.75,12.25), "cm"), TRUE) +
   theme_bw() +
-  labs(x = "Estimate", y = NULL, colour = "Model", shape = "Significance") +
-  theme(panel.grid.major.y = element_blank())
+  labs(x = "Estimate", y = NULL, colour = "Model", shape = "Significance")
 
 ggsave("viz/imputation_comparison_pca_2021.png",
        units = "px",

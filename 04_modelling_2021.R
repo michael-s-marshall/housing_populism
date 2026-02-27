@@ -106,7 +106,9 @@ these_vars <- df_full %>%
 sum_na(df_full)
 
 df_full <- df_full %>% 
-  drop_na(all_of(these_vars))
+  drop_na(all_of(these_vars)) |> 
+  mutate(income_full = scale_this(income_full),
+         income_full_knn = scale_this(income_full_knn))
 
 sub_ns - nrow(df_full)
 
@@ -173,7 +175,25 @@ summary(immi_hypot_sh)
 # improvement in model fit is significant
 anova(immi_hypot, immi_hypot_sh)
 
-# demonstrating that non-UK percent more important than population density --------------------------------
+# level 1s -----------------------------------------------------------------------
+
+immi_lvl1 <- lmer(immigSelf ~ social_housing + homeowner + private_renting +  
+                    affordability +
+                    male + 
+                    white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+                    no_religion + 
+                    age + income_full + uni_full +
+                    c1_c2 + d_e + non_uk_born +
+                    social_housing.affordability + 
+                    homeowner.affordability +
+                    (1|LAD),
+                  data = df_full, REML = FALSE)
+summary(immi_lvl1)
+
+anova(immi_lvl1, immi_hypot_sh)
+
+# adding level 2s and choosing between  non-UK percent and  population density --------------------------------
+# and showing that pop_density_change adds nothing to model --------------------------------------------------
 
 immi_test <- lmer(immigSelf ~ social_housing + homeowner + private_renting +  
                     affordability +
@@ -187,7 +207,6 @@ immi_test <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                     degree_pct + 
                     #homeowner_pct + 
                     social_rented_pct +
-                    churn + 
                     social_housing.affordability + 
                     homeowner.affordability +
                     (1|LAD),
@@ -229,7 +248,9 @@ immi_int <- lmer(immigSelf ~ social_housing + homeowner + private_renting +
                    (1|LAD),
                  data = df_full, REML = FALSE)
 
-anova(immi_test2, immi_int)
+summary(immi_int)
+
+anova(immi_test2, immi_int) # model not incl. pop_density and pop_density change as good as less parsimonious model
 
 # diagnostics -----------------------------------------------------------------
 
