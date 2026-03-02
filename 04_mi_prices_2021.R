@@ -6,6 +6,13 @@ rm(list = ls())
 
 select <- dplyr::select
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2021.RDS")
@@ -109,6 +116,8 @@ summary(pooled_pri, conf.int = TRUE)
 
 pooled_coefs_plot(pri_fit)
 
+saveRDS(pri_fit, "models/pri_fit_2021.RDS")
+
 # moderation effect ------------------------------------------------------------
 
 # function for pooled standard errors
@@ -160,5 +169,58 @@ comp_home |>
   scale_colour_viridis_d() +
   scale_fill_viridis_d() +
   theme_bw() +
-  theme(panel.grid.minor = element_blank()) +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
   labs(x = "Prices log (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
+
+my_ggsave(filename = "viz/AME_prices_2021.png")
+
+# confints ----------------------------------------------------------------------
+
+start_time <- Sys.time()
+set.seed(123)
+ci_pri <- map(getfit(pri_fit), function(m) {
+  confint(m,
+          parm = c("social_housing","homeowner","affordability","prices:homeowner","social_housing:prices","private_renting"),
+          method = "boot",
+          nsim = 500,
+          quiet = TRUE)}
+)
+
+end_time <- Sys.time()
+end_time - start_time
+
+wald_pri <- summary(pooled_pri, conf.int = TRUE) |> 
+  filter(term %in% rownames(ci_pri[[1]]))
+
+ci_pri |>
+  map(as.data.frame) |> 
+  map(rownames_to_column, var = "term") |> 
+  bind_rows(.id = "m") |> 
+  ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
+  geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
+                     y = term), colour = "black",
+                 linewidth = 1.5) +
+  scale_colour_grey() +
+  geom_linerange(data = wald_pri, 
+                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
+                 colour = "red", linewidth = 0.7) +
+  geom_point(data = wald_pri,
+             aes(x = estimate, y = term),
+             shape = 21, size = 3, fill = "white") +
+  theme_bw() +
+  labs(x = "Estimate", y = NULL,
+       caption = "Comparison of confidence intervals by method for model predicting attitudes to immigration and log of prices as measure of affordability.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        plot.caption.position = "plot",
+        plot.caption = element_text(hjust = 0,
+                                    size = 12))
+
+my_ggsave("viz/ci_comparison_pri_fit_2021.png")
+
+saveRDS(ci_pri, "models/ci_pri_2021.RDS")
