@@ -313,6 +313,8 @@ my_pool <- function(obj_list, group_vars){
 
 pooled_results <- my_pool(home_pred_list, c(homeowner, affordability))
 
+viridis_scale <- viridis::viridis(n = 4)[2:3]
+
 h_plot <- ggplot(pooled_results) +
   geom_line(aes(x = affordability, y = .estimate, 
                 color = as.factor(homeowner)),
@@ -328,8 +330,8 @@ h_plot <- ggplot(pooled_results) +
         axis.text = element_text(size = 11),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 12)) +
-  scale_colour_brewer(palette = "Dark2") +
-  scale_fill_brewer(palette = "Dark2") +
+  scale_colour_manual(values = viridis_scale) +
+  scale_fill_manual(values = viridis_scale) +
   coord_cartesian(ylim = c(5,9.25)) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
