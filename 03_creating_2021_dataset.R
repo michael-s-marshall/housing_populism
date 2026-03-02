@@ -149,41 +149,40 @@ level_2s <- readRDS("data/level_two_vars_2021.RDS")
 dat <- dat %>% 
   left_join(level_2s, by = "la_code")
 
-level_twos <- level_2s %>% select(-la_code) %>% names()
+level_twos <- level_2s %>% 
+  select(-la_code, -churn, -churn_raw, -private_rented_pct, 
+         -private_rented_pct_raw) %>% 
+  names()
 
 # selecting variables --------------------------------------------------
 
 dat <- dat %>% 
-  select(id, immigSelf, tory_2019, la_code, male, uni,
+  select(id, immigSelf, la_code, male, uni,
          white_british, white_other, indian, chinese, black, pakistan_bangladesh, mixed_race,
          no_religion, c1_c2, d_e, 
-         own_outright, own_mortgage, social_housing, private_renting,
-         disabled, cohabiting, education_age,
-         e, d, c2, c1, b, pakistan_bangladesh, part_time, unemployed,
-         region_fct, log_age, log_hh, 
+         social_housing, private_renting,
          age, age_raw, non_uk_born, homeowner, edu_20plus, income, 
-         full_time, all_of(level_twos), 
-         region_fct)
+         full_time, all_of(level_twos))
 
 # income and uni predictions --------------------------------------
 
-income_preds <- readRDS("data/income_preds_W22.RDS")
-income_preds_knn <- readRDS("data/income_knn_W22.RDS")
-income_preds_knn <- income_preds_knn %>% rename(income_knn = income)
-uni_preds <- readRDS("data/preds_uni_2021.RDS")
+#income_preds <- readRDS("data/income_preds_W22.RDS")
+#income_preds_knn <- readRDS("data/income_knn_W22.RDS")
+#income_preds_knn <- income_preds_knn %>% rename(income_knn = income)
+#uni_preds <- readRDS("data/preds_uni_2021.RDS")
 
-dat <- dat %>% 
-  left_join(income_preds %>% select(id, pred_el_round), by = "id") %>% 
-  left_join(income_preds_knn %>% select(id, income_knn), by = "id") %>% 
-  left_join(uni_preds %>% select(id, rf_uni_preds), by = "id") %>% 
-  mutate(
-    rf_uni_preds = case_when(rf_uni_preds == "yes" ~ 1, 
-                             rf_uni_preds == "no" ~ 0,
-                             .default = NA),
-    income_full = ifelse(is.na(income), pred_el_round, income),
-    income_full_knn = ifelse(is.na(income), income_knn, income),
-    uni_full = ifelse(is.na(uni), rf_uni_preds, uni)
-  )
+#dat <- dat %>% 
+#  left_join(income_preds %>% select(id, pred_el_round), by = "id") %>% 
+#  left_join(income_preds_knn %>% select(id, income_knn), by = "id") %>% 
+#  left_join(uni_preds %>% select(id, rf_uni_preds), by = "id") %>% 
+#  mutate(
+#    rf_uni_preds = case_when(rf_uni_preds == "yes" ~ 1, 
+#                             rf_uni_preds == "no" ~ 0,
+#                             .default = NA),
+#    income_full = ifelse(is.na(income), pred_el_round, income),
+#    income_full_knn = ifelse(is.na(income), income_knn, income),
+#    uni_full = ifelse(is.na(uni), rf_uni_preds, uni)
+#  )
 
 sum_na <- function(dat){
   out <- dat %>% 
@@ -212,14 +211,15 @@ saveRDS(dat, file = "data/cross_sectional_dat_2021.RDS")
 
 summ_vars <- c("male","white_british","white_other","indian","chinese","black",
                "pakistan_bangladesh","mixed_race","no_religion","c1_c2","d_e",
-               "own_outright","own_mortgage","social_housing","private_renting",
+               "social_housing","private_renting",
                "homeowner","no_religion","age_raw","non_uk_born",
                "degree_pct_raw","affordability_raw","prices_raw","pop_density_raw",
                "pop_density_change_raw", "rent_raw",
-               "homeowner_pct_raw","social_rented_pct_raw","non_uk_pct_raw", "churn_raw",
+               "homeowner_pct_raw","social_rented_pct_raw","non_uk_pct_raw",
                "over_65_pct_raw","under_16_pct_raw","overoccupied_pct_raw","ta_rate_full_raw",
-               "underoccupied_pct_raw",
-               "uni_full","income_full","immigSelf")
+               "underoccupied_pct_raw","uni","income",
+               "uni","income",
+               "immigSelf")
 
 summ_df <- dat |> 
   filter(str_detect(la_code, "^S")==FALSE) |>
@@ -246,3 +246,66 @@ region_count <- dat %>%
   mutate(prop = n / sum(n))
 
 write.csv(region_count, "tables/regions_n_2021.csv")
+
+# missing observations ----------------------------------------
+
+rm(list = ls())
+
+dat <- readRDS("data/cross_sectional_dat_2021.RDS")
+
+# removing level 2s included in the PCA
+dat <- dat |> 
+  select(-homeowner_pct, -homeowner_pct_raw,
+         -overoccupied_pct_raw, -overoccupied_pct,
+         -underoccupied_pct, -underoccupied_pct_raw,
+         -rent_raw, -rent,
+         -ta_rate, -ta_rate_raw, -ta_rate_full, -ta_rate_full_raw) |> 
+  rename(LAD = la_code)
+
+sum_na <- function(dat){
+  out <- dat %>% 
+    map_int(~sum(is.na(.)))
+  return(out)
+}
+
+sum_na(dat)
+
+missing_las <- function(df, x){
+  step1 <- df %>% 
+    mutate(nas = is.na({{x}})) %>% 
+    filter(nas == T) %>% 
+    count(LAD) %>% 
+    arrange(desc(n))
+  out <- step1$n
+  names(out) <- step1$LAD
+  return(out)
+}
+
+# missing degree pct is Scotland
+missing_las(dat, degree_pct)
+
+# missing from Eng and Wales - 2580
+missing_scotland <- nrow(dat) - nrow(dat |> drop_na(degree_pct))
+missing_scotland
+
+# further 3 missing from city of london
+# missing affordability is Scotland and 3 in City of London
+missing_las(dat, affordability)
+missing_city <- nrow(dat) - nrow(dat |> drop_na(affordability)) - missing_scotland
+missing_city
+
+missing_dv <- nrow(dat) - nrow(dat |> drop_na(affordability, immigSelf)) - missing_scotland - missing_city
+missing_dv
+
+nrow(dat) - (missing_scotland + missing_city + missing_dv) # 22948 obs remaining
+
+# modelling dataset ------------------------------------------
+
+dat <- dat |> 
+  drop_na(degree_pct, affordability, immigSelf)
+
+nrow(dat)
+
+# saving -----------------------------------------
+
+saveRDS(dat, file = "data/modelling_dataset_2021.RDS")

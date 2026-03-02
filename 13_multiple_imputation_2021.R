@@ -1,0 +1,463 @@
+pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, ggstance, marginaleffects, mice, broom.mixed, ggmice)
+
+rm(list = ls())
+
+# helper function -----------------------------------------------------
+
+select <- dplyr::select
+
+# loading dataset ---------------------------------------------
+
+dat <- readRDS("data/modelling_dataset_2021.RDS")
+
+# missing observations --------------------------------
+
+sum_na <- function(dat){
+  out <- dat %>% 
+    map_int(~sum(is.na(.)))
+  return(out)
+}
+
+dat |> sum_na()
+
+unselect <- dat |> select(contains("raw"), id) |> names()
+
+dat <- dat |> 
+  select(-all_of(unselect), -affordability_log, -prices) |> 
+  mutate(social_housing.affordability = social_housing * affordability,
+         homeowner.affordability = homeowner * affordability,
+         social_housing.pc1 = social_housing * pc1,
+         homeowner.pc2 = homeowner * pc2,
+         region_code = as.factor(region_code),
+         LAD = as.integer(as.factor(LAD)))
+
+sum_na(dat)
+
+# imputation ---------------------------------------------------------------------
+
+# Initialize the MICE model
+init <- mice(dat, maxit = 0)
+meth <- init$method
+pred <- init$predictorMatrix
+
+meth["income"] <- "2l.pan"
+
+pred[,"LAD"] <- -2
+pred["LAD","LAD"] <- 0
+pred["income", "immigSelf"] <- 1
+pred["income", "income"] <- 0
+pred
+
+# Run the multiple imputation
+imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
+
+imp_mice$imp
+
+# diagnostics ------------------------------------------------------------------
+
+# ggmice income boxplot
+ggmice(imp_mice, aes(x = .imp, y = income)) +
+  geom_boxplot() +
+  labs(x = "Imputation number")
+
+# ggmice income density plot
+ggmice(imp_mice, aes(x = income, group = .imp)) +
+  geom_density()
+
+# ggmice uni density plot
+ggmice(imp_mice, aes(x = uni, group = .imp)) +
+  geom_density()
+
+# ggmice social housing density plot
+ggmice(imp_mice, aes(x = social_housing, group = .imp)) +
+  geom_density()
+
+# ggmice social housing X affordability boxplot
+ggmice(imp_mice, aes(x = .imp, y = social_housing.affordability)) +
+  geom_boxplot() +
+  labs(x = "Imputation number")
+
+# ggmice social housing density plot
+ggmice(imp_mice, aes(x = social_housing.affordability, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = homeowner.affordability, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = social_housing.pc1, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = homeowner.pc2, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = homeowner, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = social_housing, group = .imp)) +
+  geom_density()
+
+ggmice(imp_mice, aes(x = affordability)) +
+  geom_density()
+
+# lmer -------------------------------------------------------------------------
+
+# NULL models
+my_summ <- function(obj){
+  out <- summ(obj, digits = 3, re.var = "var")
+  return(out)
+}
+
+pooled_coefs_plot <- function(obj){
+  obj |> 
+    pool() |> 
+    summary(conf.int = TRUE) |> 
+    filter(term != "(Intercept)") |> 
+    ggplot(aes(x = estimate, y = term)) +
+    geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.25, colour = "lightgrey") +
+    geom_linerange(aes(xmin = conf.low, xmax = conf.high), linewidth = 1.25) +
+    geom_point(shape = 21, fill = "white", size = 3) +
+    theme_bw() +
+    theme(panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank()) +
+    labs(x = "Estimate", y = NULL)
+}
+
+null_fit <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ (1|LAD), REML = FALSE)
+})
+
+pooled_null <- pool(null_fit)
+
+null_fit$analyses[[1]] |> my_summ()
+
+# level 1 models
+lvl1_fit <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born +
+         (social_housing * affordability) + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+lvl1_fit |> 
+  pool() |> 
+  summary(conf.int = TRUE)
+
+pooled_coefs_plot(lvl1_fit)
+
+# lvl2 fits ----------------------------------------------------
+
+# level 1 models
+lvl2_fit <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born +
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         (social_housing * affordability) + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+lvl2_fit |> 
+  pool() |> 
+  summary(conf.int = TRUE)
+
+pooled_coefs_plot(lvl2_fit)
+
+mice_anova <- function(mod1, mod2){
+  out <- map2(.x = mod1[["analyses"]],
+              .y = mod2[["analyses"]],
+              .f = anova)
+  return(out)
+}
+
+mice_anova(lvl1_fit, lvl2_fit)
+
+# region fixed effects models --------------------------------------------------
+
+# Fit the multilevel regression to each of the imputed datasets
+reg_fit <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * affordability) + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+# Pool the results from all the fitted lme4 models
+pooled_reg <- pool(reg_fit)
+
+# View the pooled summary
+summary(pooled_reg, conf.int = TRUE)
+
+pooled_coefs_plot(reg_fit)
+
+mice_anova(lvl2_fit, reg_fit)
+
+# removing homeownership interaction and testing anova -------------------------
+
+home_only <- with(imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         social_housing + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+mice_anova(home_only, reg_fit)
+
+######################################################################################
+## PCA results ---------------------------------------------------------------------
+##########################################################################################
+
+pca_fit <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * pc1) + 
+         (homeowner * pc2) +
+         (1|LAD), REML = FALSE)
+})
+
+# Pool the results from all the fitted lme4 models
+pooled_pca <- pool(pca_fit)
+
+# View the pooled summary
+summary(pooled_pca, conf.int = TRUE)
+
+pooled_coefs_plot(pca_fit)
+
+mice_anova(reg_fit, pca_fit)
+
+saveRDS(reg_fit, "models/reg_fit_2021.RDS")
+saveRDS(pca_fit, "models/pca_fit_2021.RDS")
+
+# predictions ------------------------------------------------------------
+
+# extract the models
+model_list <- getfit(reg_fit)
+
+afford_quantiles <- seq(min(dat$affordability),max(dat$affordability),((max(dat$affordability)-min(dat$affordability))/10))
+
+# avg predictions for homeownership
+grid_vals <- datagrid(
+  model = model_list[[1]], 
+  affordability = afford_quantiles, 
+  homeowner = unique 
+)
+
+home_pred_list <- map(model_list, function(m) {
+  avg_predictions(m,
+                  by = c("homeowner","affordability"),
+                  newdata = grid_vals)
+  
+})
+
+my_pool <- function(obj_list, group_vars){
+  out <- bind_rows(obj_list, .id = "imp") %>%
+    group_by(across({{group_vars}})) %>% 
+    summarise(
+      .estimate = mean(estimate),
+      var_within = mean(std.error^2),
+      var_between = var(estimate),
+      std.error = sqrt(var_within + (1 + 1/n()) * var_between),
+      conf.low = .estimate - 1.96 * std.error,
+      conf.high = .estimate + 1.96 * std.error,
+      .groups = "drop"
+    )
+  return(out)
+}
+
+pooled_results <- my_pool(home_pred_list, c(homeowner, affordability))
+
+h_plot <- ggplot(pooled_results, 
+       aes(x = affordability, y = .estimate, 
+           color = as.factor(homeowner), 
+           fill = as.factor(homeowner))) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color = NA) +
+  labs(y = "Predicted Outcome", x = "Affordability") +
+  theme_bw() +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  coord_cartesian(ylim = c(5,9.25)) +
+  labs(colour = "Homeowner", fill = "Homeowner")
+
+grid_vals <- datagrid(
+  model = model_list[[1]], 
+  affordability = afford_quantiles, 
+  social_housing = unique 
+)
+
+sohs_pred_list <- map(model_list, function(m) {
+  avg_predictions(m,
+                  by = c("social_housing","affordability"),
+                  newdata = grid_vals)
+  
+})
+
+pooled_soc_ho <- my_pool(sohs_pred_list, c(social_housing, affordability))
+
+s_plot <- ggplot(pooled_soc_ho, 
+       aes(x = affordability, y = .estimate, 
+           color = as.factor(social_housing), 
+           fill = as.factor(social_housing))) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color = NA) +
+  labs(y = "Predicted Outcome", x = "Affordability") +
+  theme_bw() +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  coord_cartesian(ylim = c(5,9.25)) +
+  labs(colour = "Social housing", fill = "Social housing")
+
+pacman::p_load(patchwork)
+
+h_plot + s_plot
+
+# moderation effect ------------------------------------------------------------
+
+comp_home <- map(model_list, function(m) {
+  avg_comparisons(m,
+                  variables = "homeowner", 
+                  by = "affordability",
+                  newdata = datagrid(affordability = afford_quantiles))
+})
+
+# moderation effect
+comp_sohs <- map(model_list, function(m) {
+  avg_comparisons(m,
+                  variables = "social_housing", 
+                  by = "affordability",        
+                  newdata = datagrid(affordability = afford_quantiles))
+})
+
+comp_home |> 
+  my_pool(affordability) |> 
+  bind_rows(my_pool(comp_sohs, affordability), .id = "tenure") |> 
+  mutate(tenure = case_when(tenure == "1" ~ "Homeowner",
+                            .default = "Social housing")) |> 
+  ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "lightgrey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = affordability), colour = "black", alpha = 0.4) +
+  geom_ribbon(aes(x = affordability, ymin = conf.low, ymax = conf.high, fill = tenure), alpha = 0.25) +
+  geom_line(aes(x = affordability, y = .estimate, colour = tenure), linewidth = 1.25)  +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()) +
+  labs(x = "Affordability (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
+
+# confints region models -----------------------------------------------------------
+
+start_time <- Sys.time()
+set.seed(123)
+ci_reg <- map(getfit(reg_fit), function(m) {
+  confint(m,
+          parm = c("social_housing","homeowner","affordability","affordability:homeowner","social_housing:affordability","private_renting"),
+          method = "boot",
+          nsim = 500,
+          quiet = TRUE)}
+  )
+
+end_time <- Sys.time()
+end_time - start_time
+
+wald_reg <- summary(pooled_reg, conf.int = TRUE) |> 
+  filter(term %in% rownames(ci_reg[[1]]))
+
+ci_reg |>
+  map(as.data.frame) |> 
+  map(rownames_to_column, var = "term") |> 
+  bind_rows(.id = "m") |> 
+  ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
+  geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
+                     y = term), colour = "black",
+                 linewidth = 1.5) +
+  scale_colour_grey() +
+  geom_linerange(data = wald_reg, 
+                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
+                 colour = "red", linewidth = 0.7) +
+  geom_point(data = wald_reg,
+             aes(x = estimate, y = term),
+             shape = 21, size = 3, fill = "white") +
+  theme_bw() +
+  labs(x = "Estimate", y = NULL)
+
+saveRDS(ci_reg, "models/ci_reg_2021.RDS")
+
+# confints PCA models -----------------------------------------------------------
+
+start_time <- Sys.time()
+set.seed(123)
+ci_pca <- map(getfit(pca_fit), function(m) {
+  confint(m,
+          parm = c("social_housing","homeowner","pc2","homeowner:pc2","social_housing:pc1","pc1","private_renting"),
+          method = "boot",
+          nsim = 500,
+          quiet = TRUE)}
+)
+
+end_time <- Sys.time()
+end_time - start_time
+
+wald_pca <- summary(pooled_pca, conf.int = TRUE) |> 
+  filter(term %in% rownames(ci_pca[[1]]))
+
+ci_pca |>
+  map(as.data.frame) |> 
+  map(rownames_to_column, var = "term") |> 
+  bind_rows(.id = "m") |> 
+  ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "black") +
+  geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
+                     y = term), colour = "black",
+                 linewidth = 1.5) +
+  scale_colour_grey() +
+  geom_linerange(data = wald_pca, 
+                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
+                 colour = "red", linewidth = 0.7) +
+  geom_point(data = wald_pca,
+             aes(x = estimate, y = term),
+             shape = 21, size = 3, fill = "white") +
+  theme_bw() +
+  labs(x = "Estimate", y = NULL)
+
+saveRDS(ci_pca, "models/ci_pca_2021.RDS")
