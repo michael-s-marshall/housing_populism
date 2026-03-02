@@ -55,7 +55,7 @@ pred["income", "brexit_party"] <- 1
 pred["income", "income"] <- 0
 pred
 
-# Run the multiple imputation
+# multiple imputation
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
 
 imp_mice$imp
@@ -266,7 +266,7 @@ pca_summary
 
 # PCA AMEs --------------------------------------------------------
 
-# extract the PCA models
+# PCA models
 pca_models <- getfit(pca_fit)
 
 pc1_quantiles <- seq(min(dat$pc1),max(dat$pc1),((max(dat$pc1)-min(dat$pc1))/10))

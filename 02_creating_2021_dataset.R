@@ -27,11 +27,6 @@ scale_this <- function(x){
 # level 1 vars -----------------------------------------------
 ##############################################################
 
-dat %>% 
-  select(starts_with("p_")) %>% 
-  names() %>% 
-  map(~count(dat %>% select(starts_with("p_")), .data[[.x]]))
-
 # p_edlevel, p_ethnicity, p_religion, p_housing, age, 
 # p_socgrade, p_country_birth, p_past_vote_2019
 # ind vars
@@ -113,32 +108,12 @@ dat$indian <- ifelse(dat$p_ethnicity == 7, 1, 0)
 dat$chinese <- ifelse(dat$p_ethnicity == 14, 1,0)
 dat$mixed_race <- ifelse(dat$p_ethnicity %in% c(3,4,5,6), 1, 0)
 
-dat %>% count(male, gender)
-dat %>% 
-  count(tory_2019, p_turnout_2019, p_past_vote_2019)
-dat %>% count(uni, p_edlevel)
-dat %>% count(p_ethnicity, white_british, white_other, pakistan_bangladesh, indian, chinese, black, mixed_race)
-dat %>% count(no_religion, p_religion)
-dat %>% count(soc_class, c1_c2, d_e, p_socgrade)
-dat %>% count(income, p_gross_household)
-dat %>% count(p_housing, own_outright, own_mortgage, homeowner, social_housing, private_renting)
-dat %>% count(non_uk_born, p_country_birth)
-dat %>% count(non_voter, p_turnout_2019)
-dat %>% count(edu_20plus, p_education_age)
-dat %>% count(immigSelf)
-dat %>% count(full_time, p_work_stat)
-dat %>% count(disabled, p_disability)
-dat %>% count(cohabiting, p_marital)
-
 dat <- dat %>% 
   mutate(
     education_age = as.factor(p_education_age),
     log_age = log(age_raw),
     log_hh = log(p_hh_size)
   )
-
-dat %>% count(education_age, p_education_age)
-dat %>% count(log_hh, p_hh_size)
 
 ##############################################################
 # level 2 vars -----------------------------------------------
@@ -163,26 +138,6 @@ dat <- dat %>%
          social_housing, private_renting,
          age, age_raw, non_uk_born, homeowner, edu_20plus, income, 
          full_time, all_of(level_twos))
-
-# income and uni predictions --------------------------------------
-
-#income_preds <- readRDS("data/income_preds_W22.RDS")
-#income_preds_knn <- readRDS("data/income_knn_W22.RDS")
-#income_preds_knn <- income_preds_knn %>% rename(income_knn = income)
-#uni_preds <- readRDS("data/preds_uni_2021.RDS")
-
-#dat <- dat %>% 
-#  left_join(income_preds %>% select(id, pred_el_round), by = "id") %>% 
-#  left_join(income_preds_knn %>% select(id, income_knn), by = "id") %>% 
-#  left_join(uni_preds %>% select(id, rf_uni_preds), by = "id") %>% 
-#  mutate(
-#    rf_uni_preds = case_when(rf_uni_preds == "yes" ~ 1, 
-#                             rf_uni_preds == "no" ~ 0,
-#                             .default = NA),
-#    income_full = ifelse(is.na(income), pred_el_round, income),
-#    income_full_knn = ifelse(is.na(income), income_knn, income),
-#    uni_full = ifelse(is.na(uni), rf_uni_preds, uni)
-#  )
 
 sum_na <- function(dat){
   out <- dat %>% 

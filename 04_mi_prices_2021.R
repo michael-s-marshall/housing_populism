@@ -40,7 +40,7 @@ sum_na(dat)
 
 # imputation ---------------------------------------------------------------------
 
-# Initialize the MICE model
+# initialize the MICE model
 init <- mice(dat, maxit = 0)
 meth <- init$method
 pred <- init$predictorMatrix
@@ -53,7 +53,7 @@ pred["income", "immigSelf"] <- 1
 pred["income", "income"] <- 0
 pred
 
-# Run the multiple imputation
+# multiple imputation
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
 
 imp_mice$imp
@@ -90,7 +90,7 @@ pooled_coefs_plot <- function(obj){
     labs(x = "Estimate", y = NULL)
 }
 
-# Fit the multilevel regression to each of the imputed datasets
+# fitting prices model
 pri_fit <- with(data = imp_mice, exp = {
   lmer(immigSelf ~ private_renting +
          male + 
@@ -108,10 +108,10 @@ pri_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-# Pool the results from all the fitted lme4 models
+# pooling results
 pooled_pri <- pool(pri_fit)
 
-# View the pooled summary
+# pooled summary
 summary(pooled_pri, conf.int = TRUE)
 
 pooled_coefs_plot(pri_fit)
@@ -136,9 +136,9 @@ my_pool <- function(obj_list, group_vars){
   return(out)
 }
 
-# extract the models
 model_list <- getfit(pri_fit)
 
+# values of prices for moderation effect
 price_quantiles <- seq(min(dat$prices),max(dat$prices),((max(dat$prices)-min(dat$prices))/10))
 
 comp_home <- map(model_list, function(m) {

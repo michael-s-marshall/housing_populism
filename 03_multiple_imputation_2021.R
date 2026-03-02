@@ -42,7 +42,7 @@ sum_na(dat)
 
 # imputation ---------------------------------------------------------------------
 
-# Initialize the MICE model
+# initialize the MICE model
 init <- mice(dat, maxit = 0)
 meth <- init$method
 pred <- init$predictorMatrix
@@ -55,7 +55,7 @@ pred["income", "immigSelf"] <- 1
 pred["income", "income"] <- 0
 pred
 
-# Run the multiple imputation
+# multiple imputation
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
 
 imp_mice$imp
@@ -158,7 +158,7 @@ pooled_coefs_plot(lvl1_fit)
 
 # lvl2 fits ----------------------------------------------------
 
-# level 1 models
+# level 2 models
 lvl2_fit <- with(data = imp_mice, exp = {
   lmer(immigSelf ~ private_renting +
          male + 
@@ -192,7 +192,7 @@ mice_anova(lvl1_fit, lvl2_fit)
 
 # region fixed effects models --------------------------------------------------
 
-# Fit the multilevel regression to each of the imputed datasets
+# models including region fixed effects
 reg_fit <- with(data = imp_mice, exp = {
   lmer(immigSelf ~ private_renting +
          male + 
@@ -210,10 +210,10 @@ reg_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-# Pool the results from all the fitted lme4 models
+# pooling models
 pooled_reg <- pool(reg_fit)
 
-# View the pooled summary
+# summary of pooled models
 pooled_reg_summary <- summary(pooled_reg, conf.int = TRUE)
 
 pooled_coefs_plot(reg_fit)
@@ -241,7 +241,7 @@ home_only <- with(imp_mice, exp = {
 
 mice_anova(home_only, reg_fit)
 
-######################################################################################
+##########################################################################################
 ## PCA results ---------------------------------------------------------------------
 ##########################################################################################
 
@@ -262,10 +262,10 @@ pca_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-# Pool the results from all the fitted lme4 models
+# pooling
 pooled_pca <- pool(pca_fit)
 
-# View the pooled summary
+# pooled summary
 pooled_pca_summary <- summary(pooled_pca, conf.int = TRUE)
 
 pooled_coefs_plot(pca_fit)

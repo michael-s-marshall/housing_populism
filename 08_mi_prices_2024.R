@@ -53,7 +53,7 @@ pred["income", "brexit_party"] <- 1
 pred["income", "income"] <- 0
 pred
 
-# Run the multiple imputation
+# multiple imputation
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
 
 imp_mice$imp
@@ -77,7 +77,7 @@ ggmice(imp_mice, aes(x = uni, group = .imp)) +
 
 start_time <- Sys.time()
 
-# fitting the regions inclusive model to each of the imputed datasets
+# fitting the prices model to each of the imputed datasets
 pri_fit <- with(data = imp_mice, exp = {
   glmer(brexit_party ~ private_renting +
           male +
@@ -128,7 +128,6 @@ my_pool <- function(obj_list, group_vars){
   return(out)
 }
 
-# extract the models
 pri_models <- getfit(pri_fit)
 
 prices_quantiles <- seq(min(dat$prices),max(dat$prices),((max(dat$prices)-min(dat$prices))/10))
