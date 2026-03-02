@@ -241,20 +241,6 @@ dat <- dat %>%
 
 sum_na(dat)
 
-# hh churn --------------------------------------------------------------
-
-churn <- read_csv("data/hh_churn_oslaua_2023.csv")
-
-churn <- churn |> 
-  rename(la_code = area,
-         churn = chn2022) |> 
-  select(la_code, churn)
-
-dat <- dat |> 
-  left_join(churn, by = "la_code")
-
-sum_na(dat)
-
 # overcrowding ------------------------------------------------------------
 
 occ <- read_csv("data/occupancy.csv")
@@ -337,7 +323,7 @@ fitControl <- trainControl(
 )
 
 ta_dat <- dat %>%
-  select(-la_code, -affordability_log, -affordability, -private_rented_pct, -churn, -pop_density_change) %>% 
+  select(-la_code, -affordability_log, -affordability, -private_rented_pct, -pop_density_change) %>% 
   na.omit()
 
 ta_dat <- ta_dat |> 
@@ -442,7 +428,7 @@ ggplot(data = NULL) +
                colour = "blue")
 
 pred_dat <- dat %>%
-  select(-la_code, -affordability_log, -affordability, -private_rented_pct, -churn) %>%
+  select(-la_code, -affordability_log, -affordability, -private_rented_pct) %>%
   bind_cols(as.data.frame(model.matrix(~region_code, data = dat)[,-1]))
 
 pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
