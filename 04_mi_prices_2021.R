@@ -183,7 +183,7 @@ start_time <- Sys.time()
 set.seed(123)
 ci_pri <- map(getfit(pri_fit), function(m) {
   confint(m,
-          parm = c("social_housing","homeowner","affordability","prices:homeowner","social_housing:prices","private_renting"),
+          parm = c("social_housing","homeowner","prices","prices:homeowner","social_housing:prices","private_renting"),
           method = "boot",
           nsim = 500,
           quiet = TRUE)}
