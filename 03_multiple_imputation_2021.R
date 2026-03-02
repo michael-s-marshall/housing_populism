@@ -412,7 +412,7 @@ comp_home |>
   theme(panel.grid.minor = element_blank()) +
   labs(x = "Affordability (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
 
-my_ggsave(filename = "AME_moderation_reg_fit_2021.png")
+my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
 # confints region models -----------------------------------------------------------
 
