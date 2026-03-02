@@ -10,6 +10,13 @@ select <- dplyr::select
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # missing observations ----------------------------------------------------
 
 sum_na <- function(dat){
@@ -202,7 +209,6 @@ pooled_ame_sohs |>
   ggplot(aes()) +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, x = affordability, fill = tenure), alpha = 0.2) +
   geom_line(aes(x = affordability, y = .estimate, colour = tenure), linewidth = 1) +
-  #geom_point(aes(colour = tenure), size = 3) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
   labs(
@@ -211,11 +217,15 @@ pooled_ame_sohs |>
     colour = "Tenure", fill = "Tenure"
   ) +
   theme_bw() +
-  theme(panel.grid.minor.y = element_blank(),
-        panel.grid.minor.x = element_blank()) +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank()) +
   scale_colour_viridis_d() +
   scale_fill_viridis_d()
 
+my_ggsave(filename = "viz/AME_plot_reg_fit_2024.png")
 saveRDS(mfx_home, file = "models/AMEs_homeowner_affordability_2024.RDS")
 saveRDS(mfx_sohs, file = "models/AMEs_social_affordability_2024.RDS")
 
@@ -259,7 +269,6 @@ pca_summary
 # extract the PCA models
 pca_models <- getfit(pca_fit)
 
-# calculate the Odds Ratio for social_housing at specific affordability levels
 pc1_quantiles <- seq(min(dat$pc1),max(dat$pc1),((max(dat$pc1)-min(dat$pc1))/10))
 pc2_quantiles <- seq(min(dat$pc2),max(dat$pc2),((max(dat$pc2)-min(dat$pc2))/10))
 
@@ -292,64 +301,95 @@ mfx_pc2 <- map(pca_models, function(m) {
 pooled_ame_pc2 <- map(mfx_pc2, as.data.frame) |> 
   my_pool(pc2)
 
-pooled_ame_pc1 |> 
-  ggplot(aes(x = pc1, y = .estimate)) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 3) +
+viridis_scale <- viridis::viridis(2)
+
+sh1 <- pooled_ame_pc1 |> 
+  mutate(Tenure = "Social housing") |>
+  ggplot() +
+  geom_ribbon(aes(x = pc1, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc1, y = .estimate, colour = Tenure), linewidth = 1.25) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc1), alpha = 0.4) +
   labs(
     x = "PC1 (Standardised)",
-    y = "Average Marginal Effect",
-    title = "Social housing"
+    y = "Average Marginal Effect"
   ) +
+  coord_cartesian(ylim = c(-0.05, 0.4)) +
   theme_bw() +
-  theme(panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank()) 
+  scale_colour_manual(values = viridis_scale[2]) +
+  scale_fill_manual(values = viridis_scale[2]) +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
 
-pooled_ame_pc2 |> 
-  ggplot(aes(x = pc2, y = .estimate)) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 3) +
+sh1
+
+h1 <- pooled_ame_pc2 |> 
+  mutate(Tenure = "Homeowner") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc2, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc2, y = .estimate, colour = Tenure), linewidth = 1.25) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc2), alpha = 0.4) +
   labs(
     x = "PC2 (Standardised)",
     y = "Average Marginal Effect",
-    title = "Homeowner"
+    fill = "Tenure", colour = "Tenure"
   ) +
+  coord_cartesian(ylim = c(-0.05, 0.4)) +
+  scale_colour_manual(values = viridis_scale[1]) +
+  scale_fill_manual(values = viridis_scale[1]) +
   theme_bw() +
-  theme(panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank()) 
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
 
+h1
+
+require(patchwork)
+
+h1 + sh1 + plot_layout(axis_titles = "collect",
+                       guides = "collect") & 
+  theme(
+    legend.spacing.y = unit(0, "cm"),     
+    legend.margin = margin(0, 0, 0, 0),   
+    legend.box.margin = margin(-5, 0, -5, 0) 
+    )
+
+my_ggsave("viz/AMES_plot_pca_2024.png")
 saveRDS(mfx_pc1, file = "models/AMEs_social_pc1_2024.RDS")
 saveRDS(mfx_pc2, file = "models/AMEs_homeowner_pc2_2024.RDS")
 
-# confidence intervals --------------------------------------------------------
+# odds ratio plot --------------------------------------------------------
 
-start_time <- Sys.time()
-set.seed(123)
-ci_reg <- map(reg_models, function(m) {
-  confint(m,
-          #parm = "social_housing",
-          parm = c("social_housing","homeowner","affordability","affordability:homeowner","social_housing:affordability","private_renting"),
-          method = "profile")}
-)
+reg_summary |> 
+  as_tibble() |> 
+  bind_rows(pca_summary |> as_tibble(),
+            .id = "Model") |> 
+  mutate(Model = case_when(Model == "1" ~ "3",
+                           .default = "4")) |> 
+  filter(str_detect(term, "renting|housing|home|affordability|^pc")) |> 
+  ggplot(aes(x = estimate, y = term, colour = Model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey", linewidth = 1.2) +
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high), 
+                 linewidth = 1.25,
+                 position = position_dodge(width = 0.4)) +
+  geom_point(shape = 21, fill = "white", 
+             size = 3,
+             position = position_dodge(width = 0.4)) +
+  labs(
+    x = "Odds Ratio", y = NULL
+  ) +
+  scale_colour_viridis_d() +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
 
-end_time <- Sys.time()
-end_time - start_time
-
-start_time <- Sys.time()
-set.seed(123)
-ci_pca <- map(pca_models, function(m) {
-  confint(m,
-          #parm = "social_housing",
-          parm = c("social_housing","homeowner","pc2","homeowner:pc2","social_housing:pc1","pc1","private_renting"),
-          method = "profile")}
-)
-
-end_time <- Sys.time()
-end_time - start_time
-
-saveRDS(ci_reg, "models/ci_reg_2024.RDS")
-saveRDS(ci_pca, "models/ci_pca_2024.RDS")
+my_ggsave("viz/odds_ratios_models_2024.png")

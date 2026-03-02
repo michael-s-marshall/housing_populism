@@ -214,7 +214,7 @@ reg_fit <- with(data = imp_mice, exp = {
 pooled_reg <- pool(reg_fit)
 
 # View the pooled summary
-summary(pooled_reg, conf.int = TRUE)
+pooled_reg_summary <- summary(pooled_reg, conf.int = TRUE)
 
 pooled_coefs_plot(reg_fit)
 
@@ -266,7 +266,7 @@ pca_fit <- with(data = imp_mice, exp = {
 pooled_pca <- pool(pca_fit)
 
 # View the pooled summary
-summary(pooled_pca, conf.int = TRUE)
+pooled_pca_summary <- summary(pooled_pca, conf.int = TRUE)
 
 pooled_coefs_plot(pca_fit)
 
@@ -416,7 +416,36 @@ comp_home |>
 
 my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
-# confints region models -----------------------------------------------------------
+# joint coef plot ---------------------------------------------------------------------
+
+pooled_reg_summary |> 
+  as_tibble() |> 
+  bind_rows(pooled_pca_summary |> as_tibble(),
+            .id = "Model") |> 
+  filter(str_detect(term, "renting|housing|home|affordability|^pc")) |> 
+  ggplot(aes(x = estimate, y = term, colour = Model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey", linewidth = 1.2) +
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high), 
+                 linewidth = 1.25,
+                 position = position_dodge(width = 0.4)) +
+  geom_point(shape = 21, fill = "white", 
+             size = 3,
+             position = position_dodge(width = 0.4)) +
+  labs(
+    x = "Estimate", y = NULL
+  ) +
+  scale_colour_viridis_d() +
+  scale_x_continuous(breaks = seq(-0.25,0.75,0.25)) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
+
+my_ggsave("viz/coef_plot_2021.png")
+
+# bootstrap confints region models -----------------------------------------------------------
 
 start_time <- Sys.time()
 set.seed(123)
@@ -464,7 +493,7 @@ my_ggsave("viz/ci_comparison_reg_fit_2021.png")
 
 saveRDS(ci_reg, "models/ci_reg_2021.RDS")
 
-# confints PCA models -----------------------------------------------------------
+# bootstrap confints PCA models -----------------------------------------------------------
 
 start_time <- Sys.time()
 set.seed(123)

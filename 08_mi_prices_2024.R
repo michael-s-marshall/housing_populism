@@ -6,6 +6,13 @@ rm(list = ls())
 
 select <- dplyr::select
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
@@ -168,10 +175,14 @@ pooled_ame_sohs |>
     colour = "Tenure", fill = "Tenure"
   ) +
   theme_bw() +
-  theme(panel.grid.minor.y = element_blank(),
-        panel.grid.minor.x = element_blank()) +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank()) +
   scale_colour_viridis_d() +
   scale_fill_viridis_d()
 
+my_ggsave("viz/AMES_prices_2024.png")
 saveRDS(mfx_home, file = "models/AMEs_homeowner_prices_2024.RDS")
 saveRDS(mfx_sohs, file = "models/AMEs_social_prices_2024.RDS")
