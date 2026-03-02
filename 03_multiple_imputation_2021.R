@@ -6,6 +6,13 @@ rm(list = ls())
 
 select <- dplyr::select
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2021.RDS")
@@ -306,16 +313,23 @@ my_pool <- function(obj_list, group_vars){
 
 pooled_results <- my_pool(home_pred_list, c(homeowner, affordability))
 
-h_plot <- ggplot(pooled_results, 
-       aes(x = affordability, y = .estimate, 
-           color = as.factor(homeowner), 
-           fill = as.factor(homeowner))) +
-  geom_line(linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color = NA) +
-  labs(y = "Predicted Outcome", x = "Affordability") +
+h_plot <- ggplot(pooled_results) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(homeowner)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(homeowner),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted Outcome", x = "Affordability (Standardised)") +
   theme_bw() +
-  scale_colour_viridis_d() +
-  scale_fill_viridis_d() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
   coord_cartesian(ylim = c(5,9.25)) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
@@ -334,14 +348,21 @@ sohs_pred_list <- map(model_list, function(m) {
 
 pooled_soc_ho <- my_pool(sohs_pred_list, c(social_housing, affordability))
 
-s_plot <- ggplot(pooled_soc_ho, 
-       aes(x = affordability, y = .estimate, 
-           color = as.factor(social_housing), 
-           fill = as.factor(social_housing))) +
-  geom_line(linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color = NA) +
-  labs(y = "Predicted Outcome", x = "Affordability") +
+s_plot <- ggplot(pooled_soc_ho) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(social_housing)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(social_housing),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted Outcome", x = "Affordability (Standardised)") +
   theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
   scale_colour_viridis_d() +
   scale_fill_viridis_d() +
   coord_cartesian(ylim = c(5,9.25)) +
@@ -349,7 +370,10 @@ s_plot <- ggplot(pooled_soc_ho,
 
 pacman::p_load(patchwork)
 
-h_plot + s_plot
+h_plot + s_plot + plot_layout(axis_titles = "collect",
+                              guides = "collect")
+
+my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.png")
 
 # moderation effect ------------------------------------------------------------
 
@@ -381,8 +405,14 @@ comp_home |>
   scale_colour_viridis_d() +
   scale_fill_viridis_d() +
   theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
   theme(panel.grid.minor = element_blank()) +
   labs(x = "Affordability (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
+
+my_ggsave(filename = "AME_moderation_reg_fit_2021.png")
 
 # confints region models -----------------------------------------------------------
 
@@ -419,7 +449,16 @@ ci_reg |>
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
   theme_bw() +
-  labs(x = "Estimate", y = NULL)
+  labs(x = "Estimate", y = NULL,
+       caption = "Comparison of confidence intervals by method for Model 1.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        plot.caption.position = "plot",
+        plot.caption = element_text(hjust = 0,
+                                    size = 12))
+
+my_ggsave("viz/ci_comparison_reg_fit_2021.png")
 
 saveRDS(ci_reg, "models/ci_reg_2021.RDS")
 
@@ -458,6 +497,15 @@ ci_pca |>
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
   theme_bw() +
-  labs(x = "Estimate", y = NULL)
+  labs(x = "Estimate", y = NULL,
+       caption = "Comparison of confidence intervals by method for Model 2.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        plot.caption.position = "plot",
+        plot.caption = element_text(hjust = 0,
+                                    size = 12))
+
+my_ggsave("viz/ci_comparison_pca_fit_2021.png")
 
 saveRDS(ci_pca, "models/ci_pca_2021.RDS")
