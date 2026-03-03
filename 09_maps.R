@@ -1,6 +1,6 @@
 rm(list = ls()) 
 
-pacman::p_load(tidyverse, sf, cartogram, patchwork, biscale, cowplot, gridGraphics, haven)
+pacman::p_load(tidyverse, sf, cartogram, patchwork, biscale, cowplot, gridGraphics, haven, nngeo)
 
 dat <- readRDS("data/level_two_vars_2021_raw.RDS")
 
@@ -16,42 +16,40 @@ full_cart <- cartogram_cont(full, "pop_density", itermax = 3, maxSizeError = 2)
 
 full_cart <- st_transform(full_cart, st_crs(full))
 
-# bivariate map ---------------------------------------------------------------
-
-bi_dat <- bi_class(full_cart, 
-                   x = prices, 
-                   y = overoccupied_pct,
-                   style = "jenks", 
-                   dim = 3)
-
-bi_map <- ggplot(bi_dat) +
-  geom_sf(aes(fill = bi_class), show.legend = FALSE) +
-  bi_scale_fill(pal = "BlueYl", dim = 3) +
-  bi_theme()
-
-my_legend <- bi_legend(pal = "BlueYl",
-                       dim = 3,
-                       xlab = "Median price (log)",
-                       ylab = "Overcrowded %",
-                       size = 8)
-
-final_plot <- ggdraw() +
-  draw_plot(bi_map, 0, 0, 1, 1) +
-  draw_plot(my_legend, 0.2, .65, 0.2, 0.2)
-
-final_plot
-
-ggsave("viz/bivariate_map.png",
-       width = 25.5, height = 16.575, unit = "cm")
+london_cart <- full_cart |> 
+  filter(region_code == "E12000007") |> 
+  select(LAD21CD, region_code) |> 
+  st_union() |> 
+  st_buffer(dist = 500) |>  
+  st_buffer(dist = -500) |> 
+  st_remove_holes()
 
 # PCA map -----------------------------------------------------------------
 
 pca_dat <- readRDS("data/level_two_vars_2021.RDS")
 
 pca_dat <- pca_dat %>% 
-  select(la_code, pc1, pc2) 
+  select(la_code, pc1, pc2) |> 
+  mutate(pc_cat = case_when(
+    pc1 > 0 & pc2 > 0 ~ "High PC1 & High PC2",
+    pc1 > 0 & pc2 <= 0 ~ "High PC1 & Low PC2",
+    pc1 <= 0 & pc2 > 0 ~ "Low PC1 & High PC2",
+    .default = "Low PC1 & Low PC2"
+  ))
 
 full_cart <- full_cart %>% left_join(pca_dat, by = c("LAD21CD" = "la_code"))
+
+full_cart |> 
+  st_drop_geometry() |> 
+  ggplot() +
+  geom_point(aes(x = pc1, y = pc2, colour = pc_cat),
+             size = 2, alpha = 0.75) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 1) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()) +
+  labs(x = "PC1", y = "PC2", colour = "PCA Category") +
+  scale_colour_viridis_d()
 
 p1 <- full_cart %>% 
   ggplot(aes(fill = pc1)) +
@@ -101,4 +99,18 @@ p4 <- full_cart %>%
 p3 + p4
 
 ggsave("viz/pca_map_quartiles.png",
+       width = 25.5, height = 16.575, unit = "cm")
+
+# PCA category map with London overlaid ---------------------------------------
+
+full_cart |> 
+  drop_na(pc1) |> 
+  ggplot() +
+  geom_sf(aes(fill = pc_cat)) +
+  geom_sf(data = london_cart, alpha = 0, colour = "red", linewidth = 1.2) +
+  scale_fill_viridis_d() +
+  labs(fill = "PCA Category") +
+  theme_void()
+
+ggsave("viz/pca_map_categories.png",
        width = 25.5, height = 16.575, unit = "cm")

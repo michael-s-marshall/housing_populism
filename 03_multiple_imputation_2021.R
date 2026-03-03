@@ -372,8 +372,7 @@ s_plot <- ggplot(pooled_soc_ho) +
 
 pacman::p_load(patchwork)
 
-h_plot + s_plot + plot_layout(axis_titles = "collect",
-                              guides = "collect")
+h_plot + s_plot + plot_layout(axis_titles = "collect")
 
 my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.png")
 
