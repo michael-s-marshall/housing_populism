@@ -324,7 +324,7 @@ h_plot <- ggplot(pooled_results) +
                   ymin = conf.low, ymax = conf.high),
               alpha = 0.2, color = NA) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
-  labs(y = "Predicted Outcome", x = "Affordability (Standardised)") +
+  labs(y = "Predicted outcome\nOpposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
@@ -359,7 +359,7 @@ s_plot <- ggplot(pooled_soc_ho) +
                   ymin = conf.low, ymax = conf.high),
               alpha = 0.2, color = NA) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
-  labs(y = "Predicted Outcome", x = "Affordability (Standardised)") +
+  labs(y = "Predicted outcome\nOpposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
@@ -411,7 +411,7 @@ comp_home |>
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 12)) +
   theme(panel.grid.minor = element_blank()) +
-  labs(x = "Affordability (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
+  labs(x = "Affordability (standardised)", y = "Estimate\nOpposition to migration", colour = "Tenure", fill = "Tenure")
 
 my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
@@ -446,7 +446,7 @@ plot_estimates |>
   geom_point(shape = 21, fill = "white", 
              size = 3,
              position = position_dodge(width = 0.4)) +
-  labs(x = "Estimate", y = NULL) +
+  labs(x = "Estimate\nOpposition to migration", y = NULL) +
   scale_colour_viridis_d() +
   scale_x_continuous(breaks = seq(-0.25,0.75,0.25)) +
   theme_bw() +
