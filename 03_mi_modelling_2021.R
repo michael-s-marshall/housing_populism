@@ -359,7 +359,7 @@ s_plot <- ggplot(pooled_soc_ho) +
                   ymin = conf.low, ymax = conf.high),
               alpha = 0.2, color = NA) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
-  labs(y = "Predicted outcom: Opposition to migration", x = "Affordability (standardised)") +
+  labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
