@@ -173,7 +173,7 @@ comp_home |>
         axis.text = element_text(size = 11),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 12)) +
-  labs(x = "Prices log (Standardised)", y = "Estimate", colour = "Tenure", fill = "Tenure")
+  labs(x = "Prices log (standardised)", y = "Estimate: Opposition to migration", colour = "Tenure", fill = "Tenure")
 
 my_ggsave(filename = "viz/AME_prices_2021.png")
 

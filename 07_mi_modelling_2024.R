@@ -213,7 +213,7 @@ pooled_ame_sohs |>
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
   labs(
     x = "Affordability (standardised)",
-    y = "Average Marginal Effect\nVoting Reform UK",
+    y = "Average Marginal Effect: Voting Reform UK",
     colour = "Tenure", fill = "Tenure"
   ) +
   theme_bw() +
@@ -312,7 +312,7 @@ sh1 <- pooled_ame_pc1 |>
   geom_rug(data = dat, aes(x = pc1), alpha = 0.4) +
   labs(
     x = "PC1 (standardised)",
-    y = "Average Marginal Effect\nVoting Reform UK"
+    y = "Average Marginal Effect: Voting Reform UK"
   ) +
   coord_cartesian(ylim = c(-0.05, 0.4)) +
   theme_bw() +
@@ -335,7 +335,7 @@ h1 <- pooled_ame_pc2 |>
   geom_rug(data = dat, aes(x = pc2), alpha = 0.4) +
   labs(
     x = "PC2 (standardised)",
-    y = "Average Marginal Effect\nVoting Reform UK",
+    y = "Average Marginal Effect: Voting Reform UK",
     fill = "Tenure", colour = "Tenure"
   ) +
   coord_cartesian(ylim = c(-0.05, 0.4)) +
@@ -397,7 +397,7 @@ plot_estimates |>
   geom_point(shape = 21, fill = "white", 
              size = 3,
              position = position_dodge(width = 0.4)) +
-  labs(x = "Odds Ratio\nVoting Reform UK", y = NULL) +
+  labs(x = "Odds Ratio: Voting Reform UK", y = NULL) +
   scale_colour_viridis_d() +
   theme_bw() +
   theme(axis.title = element_text(size = 12),

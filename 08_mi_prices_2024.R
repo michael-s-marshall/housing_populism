@@ -169,8 +169,8 @@ pooled_ame_sohs |>
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
   geom_rug(data = dat, aes(x = prices), alpha = 0.4) +
   labs(
-    x = "Prices log (Standardised)",
-    y = "Average Marginal Effect",
+    x = "Prices log (standardised)",
+    y = "Average Marginal Effect: Voting Reform UK",
     colour = "Tenure", fill = "Tenure"
   ) +
   theme_bw() +
