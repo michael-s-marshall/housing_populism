@@ -13,6 +13,14 @@ my_ggsave <- function(...){
          height = 2309)
 }
 
+pooled_summary <- function(mitml_obj){
+  out <- as.data.frame(testEstimates(mitml_obj)$estimates[,1]) |> 
+    rownames_to_column(var = "term") |> 
+    bind_cols(confint.mitml.testEstimates(testEstimates(mitml_obj))) |> 
+    rename(estimate = 2, conf.low = 3, conf.high = 4)
+  return(out)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
@@ -46,6 +54,8 @@ meth <- init$method
 pred <- init$predictorMatrix
 
 meth["income"] <- "2l.pan"
+meth["social_housing.prices"]   <- "~ I(social_housing * prices)"
+meth["homeowner.prices"]   <- "~ I(homeowner * prices)"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
@@ -73,12 +83,16 @@ ggmice(imp_mice, aes(x = income, group = .imp)) +
 ggmice(imp_mice, aes(x = uni, group = .imp)) +
   geom_density()
 
+# converting to mitml class --------------------------------------------------
+
+imp_mitml <- mids2mitml.list(imp_mice)
+
 # glmer -------------------------------------------------------------------------
 
 start_time <- Sys.time()
 
 # fitting the prices model to each of the imputed datasets
-pri_fit <- with(data = imp_mice, exp = {
+pri_fit <- with(data = imp_mitml, {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -100,14 +114,15 @@ pri_fit <- with(data = imp_mice, exp = {
 end_time <- Sys.time()
 end_time - start_time
 
-saveRDS(pri_fit, file = "models/pri_fit_2024.RDS")
-
-# pooled models
-pooled_pri <- pool(pri_fit)
+testEstimates(pri_fit)
+confint.mitml.testEstimates(testEstimates(pri_fit))
 
 # pooled odds ratios with cis (wald)
-pri_summary <- summary(pooled_pri, conf.int = TRUE, conf.level = 0.95, exponentiate = TRUE)
+pri_summary <- pooled_summary(pri_fit) |> 
+  mutate(across(estimate:conf.high, exp))
 pri_summary
+
+saveRDS(pri_fit, file = "models/pri_fit_2024.RDS")
 
 # marginal effects -----------------------------------------------------------------
 
@@ -128,12 +143,10 @@ my_pool <- function(obj_list, group_vars){
   return(out)
 }
 
-pri_models <- getfit(pri_fit)
-
 prices_quantiles <- seq(min(dat$prices),max(dat$prices),((max(dat$prices)-min(dat$prices))/10))
 
 # AMEs for social renters
-mfx_sohs <- map(pri_models, function(m) {
+mfx_sohs <- map(pri_fit, function(m) {
   avg_slopes(m,
              variables = "social_housing",
              by = "prices",
@@ -146,7 +159,7 @@ pooled_ame_sohs <- map(mfx_sohs, as.data.frame) |>
   my_pool(prices)
 
 # AMEs for homeowners
-mfx_home <- map(pri_models, function(m) {
+mfx_home <- map(pri_fit, function(m) {
   avg_slopes(m,
              variables = "homeowner",
              by = "prices",

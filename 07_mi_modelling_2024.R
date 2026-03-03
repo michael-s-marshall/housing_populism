@@ -6,6 +6,14 @@ rm(list = ls())
 
 select <- dplyr::select
 
+pooled_summary <- function(mitml_obj){
+  out <- as.data.frame(testEstimates(mitml_obj)$estimates[,1]) |> 
+    rownames_to_column(var = "term") |> 
+    bind_cols(confint.mitml.testEstimates(testEstimates(mitml_obj))) |> 
+    rename(estimate = 2, conf.low = 3, conf.high = 4)
+  return(out)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
@@ -48,6 +56,10 @@ meth <- init$method
 pred <- init$predictorMatrix
 
 meth["income"] <- "2l.pan"
+meth["social_housing.affordability"]   <- "~ I(social_housing * affordability)"
+meth["homeowner.affordability"]   <- "~ I(homeowner * affordability)"
+meth["social_housing.pc1"]   <- "~ I(social_housing * pc1)"
+meth["homeowner.pc2"]   <- "~ I(homeowner * pc2)"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
@@ -106,22 +118,26 @@ ggmice(imp_mice, aes(x = social_housing, group = .imp)) +
 ggmice(imp_mice, aes(x = affordability)) +
   geom_density()
 
+# converting to mitml class --------------------------------------------------
+
+imp_mitml <- mids2mitml.list(imp_mice)
+
 # glmer -------------------------------------------------------------------------
 
 start_time <- Sys.time()
 
-nulls_fit <- with(data = imp_mice, exp = {
+nulls_fit <- with(data = imp_mitml, {
   glmer(brexit_party ~ (1|LAD),
         family = binomial(link = "logit"),
         control = glmerControl(optimizer = "bobyqa"))
 })
 
-summary(getfit(nulls_fit)[[1]])
+testEstimates(nulls_fit, extra.pars = TRUE)
 
 saveRDS(nulls_fit, file = "models/null_models_mice_2024.RDS")
 
 # fitting the regions inclusive model to each of the imputed datasets
-reg_fit <- with(data = imp_mice, exp = {
+reg_fit <- with(data = imp_mitml, {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -143,14 +159,15 @@ reg_fit <- with(data = imp_mice, exp = {
 end_time <- Sys.time()
 end_time - start_time
 
-saveRDS(reg_fit, file = "models/reg_fit_2024.RDS")
+testEstimates(reg_fit, extra.pars = TRUE)
+testModels(reg_fit, nulls_fit)
+confint.mitml.testEstimates(testEstimates(reg_fit))
 
-# pooled models
-pooled_reg <- pool(reg_fit)
-
-# pooled odds ratios with cis (wald)
-reg_summary <- summary(pooled_reg, conf.int = TRUE, conf.level = 0.95, exponentiate = TRUE)
+reg_summary <- pooled_summary(reg_fit) |> 
+  mutate(across(estimate:conf.high, exp))
 reg_summary
+
+saveRDS(reg_fit, file = "models/reg_fit_2024.RDS")
 
 # marginal effects -----------------------------------------------------------------
 
@@ -172,12 +189,12 @@ my_pool <- function(obj_list, group_vars){
 }
 
 # extract the models
-reg_models <- getfit(reg_fit)
+# reg_models <- getfit(reg_fit)
 
 afford_quantiles <- seq(min(dat$affordability),max(dat$affordability),((max(dat$affordability)-min(dat$affordability))/10))
 
 # AMEs for social renters
-mfx_sohs <- map(reg_models, function(m) {
+mfx_sohs <- map(reg_fit, function(m) {
   avg_slopes(m,
              variables = "social_housing",
              by = "affordability",
@@ -190,7 +207,7 @@ pooled_ame_sohs <- map(mfx_sohs, as.data.frame) |>
   my_pool(affordability)
 
 # AMEs for homeowners
-mfx_home <- map(reg_models, function(m) {
+mfx_home <- map(reg_fit, function(m) {
   avg_slopes(m,
              variables = "homeowner",
              by = "affordability",
@@ -233,7 +250,7 @@ saveRDS(mfx_sohs, file = "models/AMEs_social_affordability_2024.RDS")
 
 start_time <- Sys.time()
 
-pca_fit <- with(imp_mice, exp = {
+pca_fit <- with(imp_mitml, {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -255,25 +272,27 @@ pca_fit <- with(imp_mice, exp = {
 end_time <- Sys.time()
 end_time - start_time
 
-saveRDS(pca_fit, file = "models/pca_fit_2024.RDS")
+testEstimates(pca_fit, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(pca_fit))
+testModels(pca_fit, nulls_fit)
+anova.mitml.result(pca_fit, reg_fit)
 
-# pooled models
-pooled_pca <- pool(pca_fit)
-
-# pooled odds ratios with cis (wald)
-pca_summary <- summary(pooled_pca, conf.int = TRUE, conf.level = 0.95, exponentiate = TRUE)
+pca_summary <- pooled_summary(pca_fit) |> 
+  mutate(across(estimate:conf.high, exp))
 pca_summary
+
+saveRDS(pca_fit, file = "models/pca_fit_2024.RDS")
 
 # PCA AMEs --------------------------------------------------------
 
 # PCA models
-pca_models <- getfit(pca_fit)
+# pca_models <- getfit(pca_fit)
 
 pc1_quantiles <- seq(min(dat$pc1),max(dat$pc1),((max(dat$pc1)-min(dat$pc1))/10))
 pc2_quantiles <- seq(min(dat$pc2),max(dat$pc2),((max(dat$pc2)-min(dat$pc2))/10))
 
 # AMEs for social renters
-mfx_pc1 <- map(pca_models, function(m) {
+mfx_pc1 <- map(pca_fit, function(m) {
   avg_slopes(m,
              variables = "social_housing",
              by = "pc1",
@@ -287,7 +306,7 @@ pooled_ame_pc1 <- map(mfx_pc1, as.data.frame) |>
   my_pool(pc1)
 
 # AMEs for homeowners
-mfx_pc2 <- map(pca_models, function(m) {
+mfx_pc2 <- map(pca_fit, function(m) {
   avg_slopes(m,
              variables = "homeowner",
              by = "pc2",
@@ -367,8 +386,7 @@ saveRDS(mfx_pc2, file = "models/AMEs_homeowner_pc2_2024.RDS")
 # odds ratio plot --------------------------------------------------------
 
 plot_estimates <- reg_summary |> 
-  as_tibble() |> 
-  bind_rows(pca_summary |> as_tibble(),
+  bind_rows(pca_summary,
             .id = "Model") |> 
   mutate(Model = case_when(Model == "1" ~ "3",
                            .default = "4")) |> 

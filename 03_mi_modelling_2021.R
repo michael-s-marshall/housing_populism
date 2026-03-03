@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, ggstance, marginaleffects, mice, broom.mixed, ggmice)
+pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, ggstance, marginaleffects, mice, broom.mixed, ggmice, mitml)
 
 rm(list = ls())
 
@@ -11,6 +11,14 @@ my_ggsave <- function(...){
          units = "px",
          width = 3796,
          height = 2309)
+}
+
+pooled_summary <- function(mitml_obj){
+  out <- as.data.frame(testEstimates(mitml_obj)$estimates[,1]) |> 
+    rownames_to_column(var = "term") |> 
+    bind_cols(confint.mitml.testEstimates(testEstimates(mitml_obj))) |> 
+    rename(estimate = 2, conf.low = 3, conf.high = 4)
+  return(out)
 }
 
 # loading dataset ---------------------------------------------
@@ -48,6 +56,10 @@ meth <- init$method
 pred <- init$predictorMatrix
 
 meth["income"] <- "2l.pan"
+meth["social_housing.affordability"]   <- "~ I(social_housing * affordability)"
+meth["homeowner.affordability"]   <- "~ I(homeowner * affordability)"
+meth["social_housing.pc1"]   <- "~ I(social_housing * pc1)"
+meth["homeowner.pc2"]   <- "~ I(homeowner * pc2)"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
@@ -106,6 +118,10 @@ ggmice(imp_mice, aes(x = social_housing, group = .imp)) +
 ggmice(imp_mice, aes(x = affordability)) +
   geom_density()
 
+# converting to mitml class --------------------------------------------------
+
+imp_mitml <- mids2mitml.list(imp_mice)
+
 # lmer -------------------------------------------------------------------------
 
 # NULL models
@@ -129,16 +145,15 @@ pooled_coefs_plot <- function(obj){
     labs(x = "Estimate", y = NULL)
 }
 
-null_fit <- with(data = imp_mice, exp = {
+null_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ (1|LAD), REML = FALSE)
 })
 
-pooled_null <- pool(null_fit)
+testEstimates(null_fit, extra.pars = TRUE)
 
-null_fit$analyses[[1]] |> my_summ()
+# level 1 models -----------------------------------------------------------
 
-# level 1 models
-lvl1_fit <- with(data = imp_mice, exp = {
+lvl1_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
@@ -150,16 +165,14 @@ lvl1_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-lvl1_fit |> 
-  pool() |> 
-  summary(conf.int = TRUE)
+testEstimates(lvl1_fit, extra.pars = TRUE)
 
-pooled_coefs_plot(lvl1_fit)
+testModels(lvl1_fit, null_fit)
 
 # lvl2 fits ----------------------------------------------------
 
 # level 2 models
-lvl2_fit <- with(data = imp_mice, exp = {
+lvl2_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
@@ -175,25 +188,14 @@ lvl2_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-lvl2_fit |> 
-  pool() |> 
-  summary(conf.int = TRUE)
+testEstimates(lvl2_fit, extra.pars = TRUE)
 
-pooled_coefs_plot(lvl2_fit)
-
-mice_anova <- function(mod1, mod2){
-  out <- map2(.x = mod1[["analyses"]],
-              .y = mod2[["analyses"]],
-              .f = anova)
-  return(out)
-}
-
-mice_anova(lvl1_fit, lvl2_fit)
+testModels(lvl2_fit, null_fit)
 
 # region fixed effects models --------------------------------------------------
 
 # models including region fixed effects
-reg_fit <- with(data = imp_mice, exp = {
+reg_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
@@ -210,19 +212,13 @@ reg_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-# pooling models
-pooled_reg <- pool(reg_fit)
+testEstimates(reg_fit, extra.pars = TRUE)
 
-# summary of pooled models
-pooled_reg_summary <- summary(pooled_reg, conf.int = TRUE)
-
-pooled_coefs_plot(reg_fit)
-
-mice_anova(lvl2_fit, reg_fit)
+confint.mitml.testEstimates(testEstimates(reg_fit))
 
 # removing homeownership interaction and testing anova -------------------------
 
-home_only <- with(imp_mice, exp = {
+home_only <- with(imp_mitml, {
   lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
@@ -239,13 +235,13 @@ home_only <- with(imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-mice_anova(home_only, reg_fit)
+anova.mitml.result(home_only, reg_fit)
 
 ##########################################################################################
 ## PCA results ---------------------------------------------------------------------
 ##########################################################################################
 
-pca_fit <- with(data = imp_mice, exp = {
+pca_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
@@ -262,34 +258,26 @@ pca_fit <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
-# pooling
-pooled_pca <- pool(pca_fit)
-
-# pooled summary
-pooled_pca_summary <- summary(pooled_pca, conf.int = TRUE)
-
-pooled_coefs_plot(pca_fit)
-
-mice_anova(reg_fit, pca_fit)
+testEstimates(pca_fit, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(pca_fit))
+anova.mitml.result(reg_fit, pca_fit)
+testModels(pca_fit, null_fit)
 
 saveRDS(reg_fit, "models/reg_fit_2021.RDS")
 saveRDS(pca_fit, "models/pca_fit_2021.RDS")
 
 # predictions ------------------------------------------------------------
 
-# extract the models
-model_list <- getfit(reg_fit)
-
 afford_quantiles <- seq(min(dat$affordability),max(dat$affordability),((max(dat$affordability)-min(dat$affordability))/10))
 
 # avg predictions for homeownership
 grid_vals <- datagrid(
-  model = model_list[[1]], 
+  model = reg_fit[[1]], 
   affordability = afford_quantiles, 
   homeowner = unique 
 )
 
-home_pred_list <- map(model_list, function(m) {
+home_pred_list <- map(reg_fit, function(m) {
   avg_predictions(m,
                   by = c("homeowner","affordability"),
                   newdata = grid_vals)
@@ -336,12 +324,12 @@ h_plot <- ggplot(pooled_results) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
 grid_vals <- datagrid(
-  model = model_list[[1]], 
+  model = reg_fit[[1]], 
   affordability = afford_quantiles, 
   social_housing = unique 
 )
 
-sohs_pred_list <- map(model_list, function(m) {
+sohs_pred_list <- map(reg_fit, function(m) {
   avg_predictions(m,
                   by = c("social_housing","affordability"),
                   newdata = grid_vals)
@@ -378,7 +366,7 @@ my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.png")
 
 # moderation effect ------------------------------------------------------------
 
-comp_home <- map(model_list, function(m) {
+comp_home <- map(reg_fit, function(m) {
   avg_comparisons(m,
                   variables = "homeowner", 
                   by = "affordability",
@@ -386,7 +374,7 @@ comp_home <- map(model_list, function(m) {
 })
 
 # moderation effect
-comp_sohs <- map(model_list, function(m) {
+comp_sohs <- map(reg_fit, function(m) {
   avg_comparisons(m,
                   variables = "social_housing", 
                   by = "affordability",        
@@ -417,9 +405,11 @@ my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
 # joint coef plot ---------------------------------------------------------------------
 
+pooled_reg_summary <- pooled_summary(reg_fit)
+pooled_pca_summary <- pooled_summary(pca_fit)
+
 plot_estimates <- pooled_reg_summary |> 
-  as_tibble() |> 
-  bind_rows(pooled_pca_summary |> as_tibble(),
+  bind_rows(pooled_pca_summary,
             .id = "Model") |> 
   filter(str_detect(term, "renting|housing|home|affordability|^pc"))
 
@@ -460,9 +450,27 @@ my_ggsave("viz/coef_plot_2021.png")
 
 # bootstrap confints region models -----------------------------------------------------------
 
+# refitting to mice object
+reg_fit_mice <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * affordability) + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
 start_time <- Sys.time()
 set.seed(123)
-ci_reg <- map(getfit(reg_fit), function(m) {
+ci_reg <- map(getfit(reg_fit_mice), function(m) {
   confint(m,
           parm = c("social_housing","homeowner","affordability","affordability:homeowner","social_housing:affordability","private_renting"),
           method = "boot",
@@ -472,6 +480,8 @@ ci_reg <- map(getfit(reg_fit), function(m) {
 
 end_time <- Sys.time()
 end_time - start_time
+
+pooled_reg <- pool(reg_fit_mice)
 
 wald_reg <- summary(pooled_reg, conf.int = TRUE) |> 
   filter(term %in% rownames(ci_reg[[1]]))
@@ -508,9 +518,28 @@ saveRDS(ci_reg, "models/ci_reg_2021.RDS")
 
 # bootstrap confints PCA models -----------------------------------------------------------
 
+# refitting to mice object
+pca_fit_mice <- with(data = imp_mice, exp = {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * pc1) + 
+         (homeowner * pc2) +
+         (1|LAD), REML = FALSE)
+})
+
+
 start_time <- Sys.time()
 set.seed(123)
-ci_pca <- map(getfit(pca_fit), function(m) {
+ci_pca <- map(getfit(pca_fit_mice), function(m) {
   confint(m,
           parm = c("social_housing","homeowner","pc2","homeowner:pc2","social_housing:pc1","pc1","private_renting"),
           method = "boot",
@@ -520,6 +549,8 @@ ci_pca <- map(getfit(pca_fit), function(m) {
 
 end_time <- Sys.time()
 end_time - start_time
+
+pooled_pca <- pool(pca_fit_mice)
 
 wald_pca <- summary(pooled_pca, conf.int = TRUE) |> 
   filter(term %in% rownames(ci_pca[[1]]))
