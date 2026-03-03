@@ -417,12 +417,28 @@ my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
 # joint coef plot ---------------------------------------------------------------------
 
-pooled_reg_summary |> 
+plot_estimates <- pooled_reg_summary |> 
   as_tibble() |> 
   bind_rows(pooled_pca_summary |> as_tibble(),
             .id = "Model") |> 
-  filter(str_detect(term, "renting|housing|home|affordability|^pc")) |> 
-  ggplot(aes(x = estimate, y = term, colour = Model)) +
+  filter(str_detect(term, "renting|housing|home|affordability|^pc"))
+
+plot_estimates$coef_names <- c("Private renting",
+                               "Social housing",
+                               "Affordability",
+                               "Homeowner",
+                               "Social housing X Affordability",
+                               "Homeowner X Affordability",
+                               "Private renting",
+                               "Social housing",
+                               "PC1",
+                               "Homeowner",
+                               "PC2",
+                               "Social housing X PC1",
+                               "Homeowner X PC2")
+
+plot_estimates |> 
+  ggplot(aes(x = estimate, y = coef_names, colour = Model)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey", linewidth = 1.2) +
   geom_linerange(aes(xmin = conf.low, xmax = conf.high), 
                  linewidth = 1.25,
@@ -430,9 +446,7 @@ pooled_reg_summary |>
   geom_point(shape = 21, fill = "white", 
              size = 3,
              position = position_dodge(width = 0.4)) +
-  labs(
-    x = "Estimate", y = NULL
-  ) +
+  labs(x = "Estimate", y = NULL) +
   scale_colour_viridis_d() +
   scale_x_continuous(breaks = seq(-0.25,0.75,0.25)) +
   theme_bw() +

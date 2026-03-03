@@ -366,14 +366,30 @@ saveRDS(mfx_pc2, file = "models/AMEs_homeowner_pc2_2024.RDS")
 
 # odds ratio plot --------------------------------------------------------
 
-reg_summary |> 
+plot_estimates <- reg_summary |> 
   as_tibble() |> 
   bind_rows(pca_summary |> as_tibble(),
             .id = "Model") |> 
   mutate(Model = case_when(Model == "1" ~ "3",
                            .default = "4")) |> 
-  filter(str_detect(term, "renting|housing|home|affordability|^pc")) |> 
-  ggplot(aes(x = estimate, y = term, colour = Model)) +
+  filter(str_detect(term, "renting|housing|home|affordability|^pc"))
+
+plot_estimates$coef_names <- c("Private renting",
+                               "Social housing",
+                               "Affordability",
+                               "Homeowner",
+                               "Social housing X Affordability",
+                               "Homeowner X Affordability",
+                               "Private renting",
+                               "Social housing",
+                               "PC1",
+                               "Homeowner",
+                               "PC2",
+                               "Social housing X PC1",
+                               "Homeowner X PC2")
+
+plot_estimates |> 
+  ggplot(aes(x = estimate, y = coef_names, colour = Model)) +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey", linewidth = 1.2) +
   geom_linerange(aes(xmin = conf.low, xmax = conf.high), 
                  linewidth = 1.25,
@@ -381,9 +397,7 @@ reg_summary |>
   geom_point(shape = 21, fill = "white", 
              size = 3,
              position = position_dodge(width = 0.4)) +
-  labs(
-    x = "Odds Ratio", y = NULL
-  ) +
+  labs(x = "Odds Ratio", y = NULL) +
   scale_colour_viridis_d() +
   theme_bw() +
   theme(axis.title = element_text(size = 12),
