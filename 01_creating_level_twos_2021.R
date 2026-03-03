@@ -479,6 +479,43 @@ pca_dat %>%
 dat <- dat %>% 
   left_join(pca_dat %>% select(la_code, pc1, pc2), by = "la_code")
 
+dat |> 
+  mutate(pc_cat = case_when(
+    pc1 > 0 & pc2 > 0 ~ "High PC1 & High PC2",
+    pc1 > 0 & pc2 <= 0 ~ "High PC1 & Low PC2",
+    pc1 <= 0 & pc2 > 0 ~ "Low PC1 & High PC2",
+    .default = "Low PC1 & Low PC2"
+  )) |> 
+  ggplot() +
+  geom_point(aes(x = pc1, y = pc2, colour = pc_cat),
+             size = 2, alpha = 0.75) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 1) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()) +
+  labs(x = "PC1", y = "PC2", colour = "PCA Category") +
+  scale_colour_viridis_d()
+
+raw_vars <- c("affordability_raw","rent_raw","homeowner_pct_raw","overoccupied_pct_raw","underoccupied_pct_raw","ta_rate_full_raw")
+
+pc_cat_tab <- dat |> 
+  mutate(pc_cat = case_when(
+    pc1 > 0 & pc2 > 0 ~ "High PC1 & High PC2",
+    pc1 > 0 & pc2 <= 0 ~ "High PC1 & Low PC2",
+    pc1 <= 0 & pc2 > 0 ~ "Low PC1 & High PC2",
+    .default = "Low PC1 & Low PC2"
+  )) |> 
+  group_by(pc_cat) |> 
+  summarise(
+    across(all_of(raw_vars),
+           ~mean(., na.rm = TRUE))
+  ) |> 
+  mutate(rent_raw = exp(rent_raw))
+
+pc_cat_tab
+
+write.csv(pc_cat_tab, "tables/pca_categories_summary_stats_2021.csv")
+
 saveRDS(dat_raw, "data/level_two_vars_2021_raw.RDS")
 saveRDS(dat, "data/level_two_vars_2021.RDS")
 
