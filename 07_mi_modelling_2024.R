@@ -377,8 +377,8 @@ h1 + sh1 + plot_layout(axis_titles = "collect",
                        guides = "collect") & 
   theme(
     legend.spacing.y = unit(0, "cm"),     
-    legend.margin = margin(0, 0, 0, 0),   
-    legend.box.margin = margin(-5, 0, -5, 0) 
+    legend.margin = ggplot2::margin(0, 0, 0, 0),   
+    legend.box.margin = ggplot2::margin(-5, 0, -5, 0) 
     )
 
 my_ggsave("viz/AMES_plot_pca_2024.png")
