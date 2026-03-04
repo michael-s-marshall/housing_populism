@@ -216,6 +216,8 @@ testEstimates(reg_fit, extra.pars = TRUE)
 
 confint.mitml.testEstimates(testEstimates(reg_fit))
 
+anova.mitml.result(reg_fit, lvl2_fit)
+
 # removing homeownership interaction and testing anova -------------------------
 
 home_only <- with(imp_mitml, {

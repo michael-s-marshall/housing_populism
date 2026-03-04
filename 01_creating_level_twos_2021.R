@@ -73,7 +73,7 @@ prices <- prices %>%
 dat <- edu %>% 
   full_join(afford, by = "la_code") %>% 
   left_join(prices, by = "la_code") %>% 
-  filter(la_code != "K04000001")
+  filter(la_code != "K04000001" & la_code != "E06000053")
 
 # population data -----------------------------------------------------------
 
@@ -291,7 +291,8 @@ model_nn <- train(train_predictors,
                   method= "nnet",
                   trControl = fitControl,
                   linout = TRUE,
-                  tuneLength = 7)
+                  tuneLength = 7,
+                  trace = FALSE)
 
 model_nn
 
@@ -367,6 +368,142 @@ cor.test(pred_dat$ta_preds, dat$ta_rate)
 dat <- dat %>% 
   mutate(ta_rate_full = ifelse(is.na(ta_rate), pred_dat$ta_preds, ta_rate))
 
+# imputing missing affordability observations -----------------------------------
+
+rm(ta_dat, ta_predictors, outcome, in_train, 
+   train_predictors, test_predictors, train_outcome, 
+   test_outcome, numerics, x_trans, 
+   model_lm, model_rf, model_nn, model_en, pred_dat)
+
+af_dat <- dat %>%
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change) %>% 
+  na.omit()
+
+af_dat <- af_dat |> 
+  bind_cols(as.data.frame(model.matrix(~region_code, data = af_dat)[,-1])) |> 
+  select(-region_code)
+
+af_predictors <- af_dat %>%
+  select(-affordability)
+
+outcome <- af_dat$affordability
+
+set.seed(123)
+in_train <- createDataPartition(outcome, p = 0.9, list = F)
+train_predictors <- af_predictors[in_train,] |> as.data.frame()
+test_predictors <- af_predictors[-in_train,] |> as.data.frame()
+train_outcome <- outcome[in_train]
+test_outcome <- outcome[-in_train]
+
+numerics <- train_predictors |> select(degree_pct:ta_rate_full) |> names()
+
+# scaling and centering
+x_trans <- preProcess(train_predictors[,numerics])
+train_predictors[,numerics] <- predict(x_trans, train_predictors[,numerics])
+test_predictors[,numerics] <- predict(x_trans, test_predictors[,numerics])
+af_predictors[,numerics] <- predict(x_trans, af_predictors[,numerics])
+
+# training the lm model 
+model_lm <- train(train_predictors,
+                  train_outcome,
+                  method= "lm",
+                  trControl = fitControl)
+summary(model_lm)
+
+# training the random forest
+set.seed(123)
+model_rf <- train(train_predictors,
+                  train_outcome,
+                  method = "rf",
+                  trControl = fitControl,
+                  tuneLength = 7)
+
+model_rf
+
+# neural network
+set.seed(123)
+model_nn <- train(train_predictors,
+                  train_outcome,
+                  method= "nnet",
+                  trControl = fitControl,
+                  linout = TRUE,
+                  tuneLength = 7,
+                  trace = FALSE)
+
+model_nn
+
+# ensemble 
+test_predictors$pred_rf <- predict(object = model_rf, test_predictors)
+test_predictors$pred_lm <- predict(object = model_lm, test_predictors)
+test_predictors$pred_nn <- predict(object = model_nn, test_predictors)
+
+#Predicting the out of fold prediction non-decent % for training data
+train_predictors$OOF_pred_rf <- model_rf$pred$pred[order(model_rf$pred$rowIndex)]
+train_predictors$OOF_pred_lm <- model_lm$pred$pred[order(model_lm$pred$rowIndex)]
+train_predictors$OOF_pred_nn <- model_nn$pred$pred[order(model_nn$pred$rowIndex)]
+
+#Predicting non-decent % for the test data
+test_predictors$OOF_pred_rf <- predict(model_rf, test_predictors)
+test_predictors$OOF_pred_lm <- predict(model_lm, test_predictors)
+test_predictors$OOF_pred_nn <- predict(model_nn, test_predictors)
+
+
+top_layer <- c('OOF_pred_rf', 'OOF_pred_lm', 'OOF_pred_nn')
+
+set.seed(123)
+model_en <- train(train_predictors[,top_layer],
+                  train_outcome,
+                  method = "lm",
+                  trControl = fitControl)
+model_en
+
+test_predictors$pred_en <- predict(model_en, test_predictors)
+
+sqrt(mean((test_outcome - test_predictors$pred_rf)^2))
+sqrt(mean((test_outcome - test_predictors$pred_lm)^2))
+sqrt(mean((test_outcome - test_predictors$pred_nn)^2))
+sqrt(mean((test_outcome - test_predictors$pred_en)^2))
+
+train_predictors$pred_en <- predict(model_en, train_predictors)
+
+ggplot(data = NULL) +
+  geom_density(aes(x = train_outcome)) +
+  geom_density(aes(x = train_predictors$pred_en),
+               colour = "red") +
+  geom_density(aes(x = train_predictors$OOF_pred_rf),
+               colour = "blue")
+
+
+ggplot(data = NULL) +
+  geom_density(aes(x = test_outcome)) +
+  geom_density(aes(x = test_predictors$pred_en),
+               colour = "red") +
+  geom_density(aes(x = test_predictors$pred_rf),
+               colour = "blue") 
+
+pred_dat <- dat %>%
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct) %>%
+  bind_cols(as.data.frame(model.matrix(~region_code, data = dat)[,-1]))
+
+pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
+
+pred_dat$OOF_pred_rf <- predict(model_rf, pred_dat)
+pred_dat$OOF_pred_lm <- predict(model_lm, pred_dat)
+pred_dat$OOF_pred_nn <- predict(model_nn, pred_dat)
+pred_dat$en_preds <- predict(model_en, pred_dat)
+
+ggplot(data = NULL, 
+       aes(x = pred_dat$en_preds, y = dat$affordability)) +
+  geom_point() +
+  geom_abline(linetype = "dashed", linewidth = 1.25, colour = "grey")
+
+cor.test(pred_dat$en_preds, dat$affordability)
+(summary(lm(pred_dat$en_preds ~ pred_dat$affordability)))
+
+dat <- dat %>% 
+  mutate(imp_flag = ifelse(is.na(affordability), TRUE, FALSE),
+         affordability = ifelse(is.na(affordability), pred_dat$en_preds, affordability))
+
 # rents ----------------------------------------------------
 
 rents <- read_csv("data/rent_index.csv", na = c("[z]","[x]"))
@@ -411,6 +548,141 @@ rents <- rents |>
 dat <- dat |> left_join(rents, by = "la_code")
 
 dat |> sum_na()
+
+# imputation of rent -------------------------------------------------------
+
+rm(af_dat, af_predictors, outcome, in_train, 
+   train_predictors, test_predictors, train_outcome, 
+   test_outcome, numerics, x_trans, 
+   model_lm, model_rf, model_nn, model_en, pred_dat)
+
+rt_dat <- dat %>% 
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change, -imp_flag) %>% 
+  na.omit()
+
+rt_dat <- rt_dat |> 
+  bind_cols(as.data.frame(model.matrix(~region_code, data = rt_dat)[,-1])) |> 
+  select(-region_code)
+
+rt_predictors <- rt_dat %>%
+  select(-rent)
+
+outcome <-rt_dat$rent
+
+set.seed(123)
+in_train <- createDataPartition(outcome, p = 0.9, list = F)
+train_predictors <- rt_predictors[in_train,] |> as.data.frame()
+test_predictors <- rt_predictors[-in_train,] |> as.data.frame()
+train_outcome <- outcome[in_train]
+test_outcome <- outcome[-in_train]
+
+numerics <- train_predictors |> select(degree_pct:ta_rate_full) |> names()
+
+# scaling and centering
+x_trans <- preProcess(train_predictors[,numerics])
+train_predictors[,numerics] <- predict(x_trans, train_predictors[,numerics])
+test_predictors[,numerics] <- predict(x_trans, test_predictors[,numerics])
+rt_predictors[,numerics] <- predict(x_trans, rt_predictors[,numerics])
+
+# training the lm model 
+model_lm <- train(train_predictors,
+                  train_outcome,
+                  method= "lm",
+                  trControl = fitControl)
+summary(model_lm)
+
+# training the random forest
+set.seed(123)
+model_rf <- train(train_predictors,
+                  train_outcome,
+                  method = "rf",
+                  trControl = fitControl,
+                  tuneLength = 7)
+
+model_rf
+
+# neural network
+set.seed(123)
+model_nn <- train(train_predictors,
+                  train_outcome,
+                  method= "nnet",
+                  trControl = fitControl,
+                  linout = TRUE,
+                  tuneLength = 7,
+                  trace = FALSE)
+
+model_nn
+
+# ensemble 
+test_predictors$pred_rf <- predict(object = model_rf, test_predictors)
+test_predictors$pred_lm <- predict(object = model_lm, test_predictors)
+test_predictors$pred_nn <- predict(object = model_nn, test_predictors)
+
+#Predicting the out of fold prediction non-decent % for training data
+train_predictors$OOF_pred_rf <- model_rf$pred$pred[order(model_rf$pred$rowIndex)]
+train_predictors$OOF_pred_lm <- model_lm$pred$pred[order(model_lm$pred$rowIndex)]
+train_predictors$OOF_pred_nn <- model_nn$pred$pred[order(model_nn$pred$rowIndex)]
+
+#Predicting non-decent % for the test data
+test_predictors$OOF_pred_rf <- predict(model_rf, test_predictors)
+test_predictors$OOF_pred_lm <- predict(model_lm, test_predictors)
+test_predictors$OOF_pred_nn <- predict(model_nn, test_predictors)
+
+
+top_layer <- c('OOF_pred_rf', 'OOF_pred_lm', 'OOF_pred_nn')
+
+set.seed(123)
+model_en <- train(train_predictors[,top_layer],
+                  train_outcome,
+                  method = "lm",
+                  trControl = fitControl)
+model_en
+
+test_predictors$pred_en <- predict(model_en, test_predictors)
+
+sqrt(mean((test_outcome - test_predictors$pred_rf)^2))
+sqrt(mean((test_outcome - test_predictors$pred_lm)^2))
+sqrt(mean((test_outcome - test_predictors$pred_nn)^2))
+sqrt(mean((test_outcome - test_predictors$pred_en)^2))
+
+train_predictors$pred_en <- predict(model_en, train_predictors)
+
+ggplot(data = NULL) +
+  geom_density(aes(x = train_outcome)) +
+  geom_density(aes(x = train_predictors$pred_en),
+               colour = "red") +
+  geom_density(aes(x = train_predictors$OOF_pred_rf),
+               colour = "blue")
+
+
+ggplot(data = NULL) +
+  geom_density(aes(x = test_outcome)) +
+  geom_density(aes(x = test_predictors$pred_en),
+               colour = "red") +
+  geom_density(aes(x = test_predictors$pred_rf),
+               colour = "blue") 
+
+pred_dat <- dat %>%
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change, -imp_flag) %>%
+  bind_cols(as.data.frame(model.matrix(~region_code, data = dat)[,-1]))
+
+pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
+
+pred_dat$OOF_pred_rf <- predict(model_rf, pred_dat)
+pred_dat$OOF_pred_lm <- predict(model_lm, pred_dat)
+pred_dat$OOF_pred_nn <- predict(model_nn, pred_dat)
+pred_dat$en_preds <- predict(model_en, pred_dat)
+
+ggplot(data = NULL, 
+       aes(x = pred_dat$en_preds, y = dat$rent)) +
+  geom_point() +
+  geom_abline(linetype = "dashed", linewidth = 1.25, colour = "grey")
+
+cor.test(pred_dat$en_preds, dat$rent)
+(summary(lm(pred_dat$en_preds ~ pred_dat$rent)))
+
+dat <- dat %>% 
+  mutate(rent = ifelse(is.na(rent), pred_dat$en_preds, rent))
 
 # scaling ---------------------------------------
 

@@ -243,16 +243,11 @@ missing_las(dat, degree_pct)
 missing_scotland <- nrow(dat) - nrow(dat |> drop_na(degree_pct))
 missing_scotland
 
-# further 3 missing from city of london
-# missing affordability is Scotland and 3 in City of London
-missing_las(dat, affordability)
-missing_city <- nrow(dat) - nrow(dat |> drop_na(affordability)) - missing_scotland
-missing_city
-
-missing_dv <- nrow(dat) - nrow(dat |> drop_na(affordability, immigSelf)) - missing_scotland - missing_city
+# 2582 missing from immigself
+missing_dv <- nrow(dat) - nrow(dat |> drop_na(affordability, immigSelf)) - missing_scotland
 missing_dv
 
-nrow(dat) - (missing_scotland + missing_city + missing_dv) # 22948 obs remaining
+nrow(dat) - (missing_scotland + missing_dv) # 22951 obs remaining
 
 # modelling dataset ------------------------------------------
 

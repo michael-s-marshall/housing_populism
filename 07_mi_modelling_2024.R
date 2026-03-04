@@ -277,6 +277,8 @@ confint.mitml.testEstimates(testEstimates(pca_fit))
 testModels(pca_fit, nulls_fit)
 anova.mitml.result(pca_fit, reg_fit)
 
+map2(.x = reg_fit, .y = pca_fit, .f = ~anova(.x, .y))
+
 pca_summary <- pooled_summary(pca_fit) |> 
   mutate(across(estimate:conf.high, exp))
 pca_summary
