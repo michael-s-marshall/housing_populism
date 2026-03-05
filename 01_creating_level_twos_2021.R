@@ -57,6 +57,10 @@ afford <- afford %>%
   select(la_code, affordability) %>% 
   mutate(affordability_log = log(affordability))
 
+# manual override for City of London - using 2022 figures from ONS
+afford$affordability[afford$la_code == "E09000001"] <- 16.07
+afford$affordability_log[afford$la_code == "E09000001"] <- log(16.07)
+
 # prices
 prices <- read_csv("data/median_house_prices_2021.csv")
 
