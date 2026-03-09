@@ -56,6 +56,7 @@ meth <- init$method
 pred <- init$predictorMatrix
 
 meth["income"] <- "2l.pan"
+meth["uni"] <- "logreg"
 meth["social_housing.affordability"]   <- "~ I(social_housing * affordability)"
 meth["homeowner.affordability"]   <- "~ I(homeowner * affordability)"
 meth["social_housing.pc1"]   <- "~ I(social_housing * pc1)"
@@ -65,7 +66,12 @@ pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
 pred["income", "brexit_party"] <- 1
 pred["income", "income"] <- 0
-pred
+pred["uni","LAD"] <- 0
+pred["uni","disabled"] <- 0
+pred["uni","part_time"] <- 0
+pred["uni","full_time"] <- 0
+pred["uni",]
+pred["income",]
 
 # multiple imputation
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
