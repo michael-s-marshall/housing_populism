@@ -425,7 +425,7 @@ rm(ta_dat, ta_predictors, outcome, in_train,
    model_lm, model_rf, model_nn, model_en, pred_dat)
 
 rt_dat <- dat %>% 
-  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change, -imp_flag) %>% 
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change) %>% 
   na.omit()
 
 rt_dat <- rt_dat |> 
@@ -531,7 +531,7 @@ ggplot(data = NULL) +
                colour = "blue") 
 
 pred_dat <- dat %>%
-  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change, -imp_flag) %>%
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change) %>%
   bind_cols(as.data.frame(model.matrix(~region_code, data = dat)[,-1]))
 
 pred_dat[,numerics] <- predict(x_trans, pred_dat[,numerics])
