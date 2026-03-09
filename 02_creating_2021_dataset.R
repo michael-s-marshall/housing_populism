@@ -63,57 +63,50 @@ dat <- dat %>%
   rename(la_code = oslaua_code)
 
 dat$male <- ifelse(dat$gender == 1, 1, 0)
-dat$soc_class[dat$soc_class == "Other"] <- NA
-dat$c1_c2 <- ifelse(dat$soc_class == "C1-C2", 1, 0)
-dat$d_e <- ifelse(dat$soc_class == "D-E", 1, 0)
 dat$income <- ifelse(dat$p_gross_household %in% c(16, 17), 
-                    NA, dat$p_gross_household)
-dat$own_outright <- ifelse(dat$p_housing == 1, 1, 0)
-dat$private_renting <- ifelse(dat$p_housing == 4, 1, 0)
-dat$social_housing <- ifelse(dat$p_housing == 5|dat$p_housing == 6, 1, 0)
-dat$own_mortgage <- ifelse(dat$p_housing == 2, 1, 0)
-dat$homeowner <- ifelse(dat$own_outright == 1 | dat$own_mortgage == 1, 1, 0)
-dat$tory_2019 <- ifelse(dat$p_turnout_2019 == 0|dat$tory_2019 == "Other", 0, 1)
-dat$tory_2019[dat$p_past_vote_2019 == 9999] <- NA
-dat$non_voter <- dat$p_turnout_2019 == 0
-dat$non_voter[dat$p_turnout_2019 == 9999] <- NA
-dat$immigSelf[dat$immigSelf == 9999] <- NA
+                     NA, dat$p_gross_household)
 dat$age_raw <- dat$age
 dat$age <- scale_this(dat$age)
+dat$own_outright <- ifelse(dat$p_housing == 1, 1, 0)
+dat$private_renting <- ifelse(dat$p_housing == 4, 1, 0)
+dat$social_housing <- ifelse(dat$p_housing == 5 | dat$p_housing == 6, 1, 0)
+dat$own_mortgage <- ifelse(dat$p_housing == 2, 1, 0)
+dat$homeowner <- ifelse(dat$own_outright == 1 | dat$own_mortgage == 1, 1, 0)
 dat$edu_20plus <- ifelse(dat$p_education_age == 5, 1, 0)
 dat$edu_20plus[is.na(dat$p_education_age)] <- NA
-
-# vars for income predictions
+dat$edu_15 <- ifelse(dat$p_education_age == 1, 1, 0)
+dat$edu_15[is.na(dat$p_education_age)] <- NA
+dat$edu_16 <- ifelse(dat$p_education_age == 2, 1, 0)
+dat$edu_16[is.na(dat$p_education_age)] <- NA
 dat$full_time <- ifelse(dat$p_work_stat == 1, 1, 0)
+dat$unemployed <- ifelse(dat$p_work_stat == 6, 1, 0)
+dat$unemployed[is.na(dat$p_work_stat)] <- NA
+dat$part_time <- ifelse(dat$p_work_stat %in% c(2, 3), 1, 0)
+dat$part_time[is.na(dat$p_work_stat)] <- NA
+dat$retired <- ifelse(dat$p_work_stat == 5, 1, 0)
+dat$retired[is.na(dat$p_work_stat)] <- NA
+dat <- dat %>% 
+  mutate(low_income = ifelse(p_gross_household < 5, 1, 0) %>% as.factor)
+dat$low_income[is.na(dat$income)] <- NA
 dat$disabled <- ifelse(dat$p_disability %in% c(1, 2), 1, 0)
 dat$disabled[is.na(dat$p_disability)] <- NA
 dat$p_hh_size <- ifelse(dat$p_hh_size %in% c(9, 10), 
                         NA, dat$p_hh_size)
 dat$cohabiting <- ifelse(dat$p_marital %in% c(1, 2, 4), 1, 0)
 dat$cohabiting[is.na(dat$p_marital)] <- NA
-dat$e <- ifelse(dat$p_socgrade == 6, 1, 0)
-dat$d <- ifelse(dat$p_socgrade == 5, 1, 0)
-dat$c2 <- ifelse(dat$p_socgrade == 4, 1, 0)
-dat$c1 <- ifelse(dat$p_socgrade == 3, 1, 0)
-dat$b <- ifelse(dat$p_socgrade == 2, 1, 0)
+dat$soc_class[dat$soc_class == "Other"] <- NA
+dat$c1_c2 <- ifelse(dat$soc_class == "C1-C2", 1, 0)
+dat$d_e <- ifelse(dat$soc_class == "D-E", 1, 0)
 dat$pakistan_bangladesh <- ifelse(dat$p_ethnicity %in% c(8, 9), 1, 0)
-dat$unemployed <- ifelse(dat$p_work_stat == 6, 1, 0)
-dat$unemployed[is.na(dat$p_work_stat)] <- NA
-dat$part_time <- ifelse(dat$p_work_stat %in% c(2, 3), 1, 0)
-dat$part_time[is.na(dat$p_work_stat)] <- NA
-dat$region_fct <- as.factor(dat$gor)
+dat$black <- ifelse(dat$p_ethnicity %in% c(11, 12, 13), 1, 0)
 dat$white_other <- ifelse(dat$p_ethnicity == 2, 1, 0)
-dat$black <- ifelse(dat$p_ethnicity == 11 | dat$p_ethnicity == 12 | dat$p_ethnicity == 13, 1, 0)
 dat$indian <- ifelse(dat$p_ethnicity == 7, 1, 0)
-dat$chinese <- ifelse(dat$p_ethnicity == 14, 1,0)
-dat$mixed_race <- ifelse(dat$p_ethnicity %in% c(3,4,5,6), 1, 0)
+dat$chinese <- ifelse(dat$p_ethnicity == 14, 1, 0)
+dat$mixed_race <- ifelse(dat$p_ethnicity %in% c(3, 4, 5, 6), 1, 0)
+dat$pub_job <- ifelse(dat$p_job_sector == 2, 1, 0)
+dat$pub_job[is.na(dat$p_job_sector)] <- NA
 
-dat <- dat %>% 
-  mutate(
-    education_age = as.factor(p_education_age),
-    log_age = log(age_raw),
-    log_hh = log(p_hh_size)
-  )
+dat$immigSelf[dat$immigSelf == 9999] <- NA
 
 ##############################################################
 # level 2 vars -----------------------------------------------
@@ -135,9 +128,14 @@ dat <- dat %>%
   select(id, immigSelf, la_code, male, uni,
          white_british, white_other, indian, chinese, black, pakistan_bangladesh, mixed_race,
          no_religion, c1_c2, d_e, 
-         social_housing, private_renting,
-         age, age_raw, non_uk_born, homeowner, edu_20plus, income, 
-         full_time, all_of(level_twos))
+         social_housing, private_renting, homeowner,
+         age, age_raw, non_uk_born, edu_20plus, edu_15, edu_16,
+         income,
+         full_time, part_time, unemployed, retired,
+         pub_job,
+         p_hh_size, cohabiting, disabled,
+         all_of(level_twos)
+  )
 
 sum_na <- function(dat){
   out <- dat %>% 
