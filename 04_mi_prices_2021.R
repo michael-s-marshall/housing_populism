@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, ggstance, marginaleffects, mice, broom.mixed, ggmice, mitml)
+pacman::p_load(tidyverse, haven, jtools, lme4, lmerTest, ggstance, marginaleffects, mice, broom.mixed, ggmice, mitml, parallel)
 
 rm(list = ls())
 
@@ -202,47 +202,73 @@ pri_fit_mice <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
+my_params <- c("social_housing", "homeowner", "prices", "prices:homeowner", "social_housing:prices", "private_renting")
+# function for extraction of fixed effects
+get_fixed_effects <- function(model) {
+  target_params <- c("social_housing", "homeowner", "prices", "prices:homeowner", "social_housing:prices", "private_renting")
+  ests <- lme4::fixef(model)
+  return(ests[target_params])
+}
+
+# number of cores for parallel processing
+num_cores <- detectCores() - 1
+my_seeds <- c(101, 102, 103, 104, 105) # seeds for parallel
 
 start_time <- Sys.time()
-set.seed(123)
-ci_pri <- map(getfit(pri_fit_mice), function(m) {
-  confint(m,
-          parm = c("social_housing","homeowner","prices","prices:homeowner","social_housing:prices","private_renting"),
-          method = "boot",
+ci_pri <- map2(getfit(pri_fit_mice), my_seeds, function(m, current_seed) {
+  bootMer(m,
+          FUN = get_fixed_effects,
           nsim = 500,
-          quiet = TRUE)}
-)
+          use.u = FALSE,
+          type = "parametric",
+          parallel = "snow",
+          ncpus = num_cores,
+          seed = current_seed)
+})
 
 end_time <- Sys.time()
 end_time - start_time
 
+# extract the 't' matrix from each dataset and bind them into one dataframe
+pooled_ci_pri <- map_dfr(ci_pri, ~ as.data.frame(.x$t))
+colnames(pooled_ci_pri) <- my_params
+
+# calculate the 95% Confidence Intervals using the Percentile method
+pooled_cis <- map_df(pooled_ci_pri, function(x) {
+  quantile(x, probs = c(0.025, 0.975))
+}) |> 
+  mutate(term = colnames(pooled_ci_pri), estimate = NA, .before = 1) |> 
+  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+
+# pooled estimate and wald intervals for comparison
 pooled_pri <- pool(pri_fit_mice)
 
 wald_pri <- summary(pooled_pri, conf.int = TRUE) |> 
-  filter(term %in% rownames(ci_pri[[1]]))
+  filter(term %in% colnames(pooled_ci_pri)) |> 
+  select(term, estimate, `2.5 %`, `97.5 %`)
 
-ci_pri |>
-  map(as.data.frame) |> 
-  map(rownames_to_column, var = "term") |> 
-  bind_rows(.id = "m") |> 
+# plotting
+pooled_cis |>
+  bind_rows(wald_pri, .id = "method") |> 
+  mutate(Method = case_when(method == "1" ~ "Bootstrap", .default = "Wald")) |> 
   ggplot() +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
-                     y = term), colour = "black",
-                 linewidth = 0.8) +
-  scale_colour_grey() +
-  geom_linerange(data = wald_pri, 
-                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 1.5) +
+                     y = term,
+                     colour = Method),
+                 linewidth = 1.2,
+                 position = position_dodge(width = 0.2)) +
   geom_point(data = wald_pri,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
+  scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
-       caption = "Comparison of confidence intervals by method for model predicting attitudes to immigration and log of prices as measure of affordability.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+       caption = "Comparison of confidence intervals by method for model predicting attitudes to immigration and log of prices as measure of affordability.") +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
         legend.title = element_text(size = 12),
+        legend.text = element_text(size = 11),
         plot.caption.position = "plot",
         plot.caption = element_text(hjust = 0,
                                     size = 12))

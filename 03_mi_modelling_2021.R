@@ -477,46 +477,73 @@ reg_fit_mice <- with(data = imp_mice, exp = {
          (1|LAD), REML = FALSE)
 })
 
+reg_params <- c("social_housing", "homeowner", "affordability", "affordability:homeowner", "social_housing:affordability", "private_renting")
+# function for extraction of fixed effects
+get_fixed_effects <- function(model) {
+  target_params <- c("social_housing", "homeowner", "affordability", "affordability:homeowner", "social_housing:affordability", "private_renting")
+  ests <- lme4::fixef(model)
+  return(ests[target_params])
+}
+
+# number of cores for parallel processing
+num_cores <- detectCores() - 1
+my_seeds <- c(101, 102, 103, 104, 105) # seeds for parallel
+
 start_time <- Sys.time()
-set.seed(123)
-ci_reg <- map(getfit(reg_fit_mice), function(m) {
-  confint(m,
-          parm = c("social_housing","homeowner","affordability","affordability:homeowner","social_housing:affordability","private_renting"),
-          method = "boot",
+ci_reg <- map2(getfit(reg_fit_mice), my_seeds, function(m, current_seed) {
+  bootMer(m,
+          FUN = get_fixed_effects,
           nsim = 500,
-          quiet = TRUE)}
-  )
+          use.u = FALSE,
+          type = "parametric",
+          parallel = "snow",
+          ncpus = num_cores,
+          seed = current_seed)
+})
 
 end_time <- Sys.time()
 end_time - start_time
 
+# extract the 't' matrix from each dataset and bind them into one dataframe
+pooled_ci_reg <- map_dfr(ci_reg, ~ as.data.frame(.x$t))
+colnames(pooled_ci_reg) <- reg_params
+
+# calculate the 95% Confidence Intervals using the Percentile method
+reg_cis <- map_df(pooled_ci_reg, function(x) {
+  quantile(x, probs = c(0.025, 0.975))
+}) |> 
+  mutate(term = colnames(pooled_ci_reg), estimate = NA, .before = 1) |> 
+  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+
+# pooled estimate and wald intervals for comparison
 pooled_reg <- pool(reg_fit_mice)
 
 wald_reg <- summary(pooled_reg, conf.int = TRUE) |> 
-  filter(term %in% rownames(ci_reg[[1]]))
+  filter(term %in% colnames(pooled_ci_reg)) |> 
+  select(term, estimate, `2.5 %`, `97.5 %`)
 
-ci_reg |>
-  map(as.data.frame) |> 
-  map(rownames_to_column, var = "term") |> 
-  bind_rows(.id = "m") |> 
+# plotting
+reg_cis |>
+  bind_rows(wald_reg, .id = "method") |> 
+  mutate(Method = case_when(method == "1" ~ "Bootstrap", .default = "Wald")) |> 
   ggplot() +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
-                     y = term), colour = "black",
-                 linewidth = 0.8) +
-  scale_colour_grey() +
-  geom_linerange(data = wald_reg, 
-                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 1.5) +
+                     y = term,
+                     colour = Method),
+                 linewidth = 1.2,
+                 position = position_dodge(width = 0.2)) +
   geom_point(data = wald_reg,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
+  scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
-       caption = "Comparison of confidence intervals by method for Model 1.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+       caption = "Comparison of confidence intervals by method for Model 1.") +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
         legend.title = element_text(size = 12),
+        legend.text = element_text(size = 11),
         plot.caption.position = "plot",
         plot.caption = element_text(hjust = 0,
                                     size = 12))
@@ -546,47 +573,69 @@ pca_fit_mice <- with(data = imp_mice, exp = {
 })
 
 
+pca_params <- c("social_housing", "homeowner", "pc1", "pc2", "homeowner:pc2", "social_housing:pc1", "private_renting")
+# function for extraction of fixed effects
+get_fixed_effects <- function(model) {
+  target_params <- c("social_housing", "homeowner", "pc1", "pc2", "homeowner:pc2", "social_housing:pc1", "private_renting")
+  ests <- lme4::fixef(model)
+  return(ests[target_params])
+}
+
 start_time <- Sys.time()
-set.seed(123)
-ci_pca <- map(getfit(pca_fit_mice), function(m) {
-  confint(m,
-          parm = c("social_housing","homeowner","pc2","homeowner:pc2","social_housing:pc1","pc1","private_renting"),
-          method = "boot",
+ci_pca <- map2(getfit(pca_fit_mice), my_seeds, function(m, current_seed) {
+  bootMer(m,
+          FUN = get_fixed_effects,
           nsim = 500,
-          quiet = TRUE)}
-)
+          use.u = FALSE,
+          type = "parametric",
+          parallel = "snow",
+          ncpus = num_cores,
+          seed = current_seed)
+})
 
 end_time <- Sys.time()
 end_time - start_time
 
+# extract the 't' matrix from each dataset and bind them into one dataframe
+pooled_ci_pca <- map_dfr(ci_pca, ~ as.data.frame(.x$t))
+colnames(pooled_ci_pca) <- pca_params
+
+# calculate the 95% Confidence Intervals using the Percentile method
+pca_cis <- map_df(pooled_ci_pca, function(x) {
+  quantile(x, probs = c(0.025, 0.975))
+}) |> 
+  mutate(term = colnames(pooled_ci_pca), estimate = NA, .before = 1) |> 
+  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+
+# pooled estimate and wald intervals for comparison
 pooled_pca <- pool(pca_fit_mice)
 
 wald_pca <- summary(pooled_pca, conf.int = TRUE) |> 
-  filter(term %in% rownames(ci_pca[[1]]))
+  filter(term %in% colnames(pooled_ci_pca)) |> 
+  select(term, estimate, `2.5 %`, `97.5 %`)
 
-ci_pca |>
-  map(as.data.frame) |> 
-  map(rownames_to_column, var = "term") |> 
-  bind_rows(.id = "m") |> 
+# plotting
+pca_cis |>
+  bind_rows(wald_pca, .id = "method") |> 
+  mutate(Method = case_when(method == "1" ~ "Bootstrap", .default = "Wald")) |> 
   ggplot() +
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
-                     y = term), colour = "black",
-                 linewidth = 0.8) +
-  scale_colour_grey() +
-  geom_linerange(data = wald_pca, 
-                 aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 1.5) +
+                     y = term,
+                     colour = Method),
+                 linewidth = 1.2,
+                 position = position_dodge(width = 0.2)) +
   geom_point(data = wald_pca,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
-  scale_x_continuous(breaks = seq(-0.5,1,0.25)) +
+  scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
-       caption = "Comparison of confidence intervals by method for Model 2.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
+       caption = "Comparison of confidence intervals by method for Model 2.") +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 11),
         legend.title = element_text(size = 12),
+        legend.text = element_text(size = 11),
         plot.caption.position = "plot",
         plot.caption = element_text(hjust = 0,
                                     size = 12))
