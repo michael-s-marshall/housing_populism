@@ -229,11 +229,11 @@ ci_pri |>
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
                      y = term), colour = "black",
-                 linewidth = 1.5) +
+                 linewidth = 0.8) +
   scale_colour_grey() +
   geom_linerange(data = wald_pri, 
                  aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 0.7) +
+                 colour = "red", linewidth = 1.5) +
   geom_point(data = wald_pri,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +

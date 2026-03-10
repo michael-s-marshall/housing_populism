@@ -503,11 +503,11 @@ ci_reg |>
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
                      y = term), colour = "black",
-                 linewidth = 1.5) +
+                 linewidth = 0.8) +
   scale_colour_grey() +
   geom_linerange(data = wald_reg, 
                  aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 0.7) +
+                 colour = "red", linewidth = 1.5) +
   geom_point(data = wald_reg,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
@@ -569,17 +569,18 @@ ci_pca |>
   map(rownames_to_column, var = "term") |> 
   bind_rows(.id = "m") |> 
   ggplot() +
-  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "black") +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.2, colour = "grey") +
   geom_linerange(aes(xmin = `2.5 %`, xmax = `97.5 %`, 
                      y = term), colour = "black",
-                 linewidth = 1.5) +
+                 linewidth = 0.8) +
   scale_colour_grey() +
   geom_linerange(data = wald_pca, 
                  aes(xmin = `2.5 %`, xmax = `97.5 %`, y = term),
-                 colour = "red", linewidth = 0.7) +
+                 colour = "red", linewidth = 1.5) +
   geom_point(data = wald_pca,
              aes(x = estimate, y = term),
              shape = 21, size = 3, fill = "white") +
+  scale_x_continuous(breaks = seq(-0.5,1,0.25)) +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
        caption = "Comparison of confidence intervals by method for Model 2.\nBlack lines are bootstrapped 95% confidence intervals. Red lines are Wald 95% confidence intervals.") +
