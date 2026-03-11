@@ -166,8 +166,10 @@ end_time <- Sys.time()
 end_time - start_time
 
 testEstimates(reg_fit, extra.pars = TRUE)
-testModels(reg_fit, nulls_fit)
 confint.mitml.testEstimates(testEstimates(reg_fit))
+
+testModels(reg_fit, nulls_fit)
+map2(.x = nulls_fit, .y = reg_fit, .f = ~anova(.x, .y))
 
 reg_summary <- pooled_summary(reg_fit) |> 
   mutate(across(estimate:conf.high, exp))
@@ -280,6 +282,8 @@ end_time - start_time
 
 testEstimates(pca_fit, extra.pars = TRUE)
 confint.mitml.testEstimates(testEstimates(pca_fit))
+
+testModels(pca_fit, nulls_fit)
 
 map2(.x = reg_fit, .y = pca_fit, .f = ~anova(.x, .y))
 

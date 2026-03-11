@@ -174,7 +174,7 @@ lvl1_fit <- with(data = imp_mitml, {
 
 testEstimates(lvl1_fit, extra.pars = TRUE)
 
-testModels(lvl1_fit, null_fit)
+testModels(lvl1_fit, null_fit, method = "D4")
 
 # lvl2 fits ----------------------------------------------------
 
@@ -197,7 +197,9 @@ lvl2_fit <- with(data = imp_mitml, {
 
 testEstimates(lvl2_fit, extra.pars = TRUE)
 
-testModels(lvl2_fit, null_fit)
+testModels(lvl2_fit, null_fit, method = "D4")
+
+anova.mitml.result(lvl2_fit, lvl1_fit, method = "D3")
 
 # region fixed effects models --------------------------------------------------
 
@@ -223,9 +225,9 @@ testEstimates(reg_fit, extra.pars = TRUE)
 
 confint.mitml.testEstimates(testEstimates(reg_fit))
 
-anova.mitml.result(reg_fit, lvl2_fit)
+anova.mitml.result(reg_fit, lvl2_fit, method = "D3")
 
-# removing homeownership interaction and testing anova -------------------------
+# removing social housing interaction and testing anova -------------------------
 
 home_only <- with(imp_mitml, {
   lmer(immigSelf ~ private_renting +
@@ -244,11 +246,32 @@ home_only <- with(imp_mitml, {
          (1|LAD), REML = FALSE)
 })
 
-anova.mitml.result(home_only, reg_fit)
+anova.mitml.result(home_only, reg_fit, method = "D3")
 
-##########################################################################################
+# removing degree pct -----------------------------------------------------------------
+
+deg_fit <- with(data = imp_mitml, {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         #degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * affordability) + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+testEstimates(deg_fit, extra.pars = TRUE)
+
+confint.mitml.testEstimates(testEstimates(deg_fit))
+
 ## PCA results ---------------------------------------------------------------------
-##########################################################################################
 
 pca_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ private_renting +
@@ -269,8 +292,8 @@ pca_fit <- with(data = imp_mitml, {
 
 testEstimates(pca_fit, extra.pars = TRUE)
 confint.mitml.testEstimates(testEstimates(pca_fit))
-anova.mitml.result(reg_fit, pca_fit)
-testModels(pca_fit, null_fit)
+anova.mitml.result(reg_fit, pca_fit, method = "D3")
+testModels(pca_fit, null_fit, method = "D3")
 
 saveRDS(reg_fit, "models/reg_fit_2021.RDS")
 saveRDS(pca_fit, "models/pca_fit_2021.RDS")
