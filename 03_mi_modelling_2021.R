@@ -38,8 +38,7 @@ dat |> sum_na()
 unselect <- dat |> select(contains("raw"), id) |> names()
 
 dat <- dat |> 
-  select(-all_of(unselect), -affordability_log, -prices,
-         -imp_flag) |> 
+  select(-all_of(unselect), -affordability_log, -prices) |> 
   mutate(social_housing.affordability = social_housing * affordability,
          homeowner.affordability = homeowner * affordability,
          social_housing.pc1 = social_housing * pc1,
@@ -297,6 +296,59 @@ testModels(pca_fit, null_fit, method = "D3")
 
 saveRDS(reg_fit, "models/reg_fit_2021.RDS")
 saveRDS(pca_fit, "models/pca_fit_2021.RDS")
+
+# income interaction -------------------------------------------------
+
+imp_mitml <- within(imp_mitml, {
+  income_quartile <- cut_number(income, n = 4, labels = c("1","2","3","4"))
+  first_quartile <- case_when(income_quartile == "1" ~ 1, .default = 0)
+  second_quartile <- case_when(income_quartile == "2" ~ 1, .default = 0)
+  third_quartile <- case_when(income_quartile == "3" ~ 1, .default = 0)
+  renters <- case_when(homeowner == 0 ~ 1, .default = 0)
+})
+
+inc_fit <- with(data = imp_mitml, {
+  lmer(immigSelf ~ private_renting + social_housing + #homeowner +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (income * renters * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+testEstimates(inc_fit, extra.pars = TRUE)
+inc_fit |> map_dbl(AIC)
+reg_fit |> map_dbl(AIC)
+
+# income quartile interaction ------------------------------------------
+  
+inc_qrt <- with(data = imp_mitml, {
+  lmer(immigSelf ~ private_renting + social_housing + #homeowner +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         second_quartile + third_quartile +
+         (first_quartile * affordability * renters) +
+         (1|LAD), REML = FALSE)
+})
+
+testEstimates(inc_qrt, extra.pars = TRUE)
+anova.mitml.result(reg_fit, inc_qrt, method = "D3")
+map2(.x = reg_fit, .y = inc_qrt, .f = anova)
 
 # predictions ------------------------------------------------------------
 
