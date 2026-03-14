@@ -435,3 +435,91 @@ plot_estimates |>
         panel.grid.minor = element_blank())
 
 my_ggsave("viz/odds_ratios_models_2024.png")
+
+# robustness - checking linearity of interaction ----------------------------
+
+imp_binned <- within(imp_mitml, {
+  afford_tert <- cut_number(affordability, n = 3, labels = c("1","2","3"))
+  second_afford <- case_when(afford_tert == "2" ~ 1, .default = 0)
+  third_afford <- case_when(afford_tert == "3" ~ 1, .default = 0)
+  
+  pc1_tert <- cut_number(pc1, n = 3, labels = c("1","2","3"))
+  second_pc1 <- case_when(pc1_tert == "2" ~ 1, .default = 0)
+  third_pc1 <- case_when(pc1_tert == "3" ~ 1, .default = 0)
+  
+  pc2_tert <- cut_number(pc2, n = 3, labels = c("1","2","3"))
+  second_pc2 <- case_when(pc2_tert == "2" ~ 1, .default = 0)
+  third_pc2 <- case_when(pc2_tert == "3" ~ 1, .default = 0)
+})
+
+# affordability model
+start_time <- Sys.time()
+
+aft_mod <- with(data = imp_binned, {
+  glmer(brexit_party ~ private_renting +
+          male +
+          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+          no_religion +
+          age + income + uni +
+          c1_c2 + d_e + non_uk_born +
+          non_uk_pct + pop_density + pop_density_change +
+          over_65_pct + under_16_pct +
+          degree_pct +
+          social_rented_pct +
+          region_code +
+          (social_housing * second_afford) +
+          (social_housing * third_afford) +
+          (homeowner * second_afford) +
+          (homeowner * third_afford) +
+          (1|LAD),
+        family = binomial(link = "logit"),
+        control = glmerControl(optimizer = "bobyqa"))
+})
+
+end_time <- Sys.time()
+end_time - start_time
+
+testEstimates(aft_mod, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(aft_mod))
+
+aft_summary <- pooled_summary(aft_mod) |> 
+  mutate(across(estimate:conf.high, exp))
+aft_summary
+
+# pca model
+start_time <- Sys.time()
+
+pct_mod <- with(data = imp_binned, {
+  glmer(brexit_party ~ private_renting +
+          male +
+          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+          no_religion +
+          age + income + uni +
+          c1_c2 + d_e + non_uk_born +
+          non_uk_pct + pop_density + pop_density_change +
+          over_65_pct + under_16_pct +
+          degree_pct +
+          social_rented_pct +
+          region_code +
+          (social_housing * second_pc1) +
+          (social_housing * third_pc1) +
+          (homeowner * second_pc2) +
+          (homeowner * third_pc2) +
+          (1|LAD),
+        family = binomial(link = "logit"),
+        control = glmerControl(optimizer = "bobyqa"))
+})
+
+end_time <- Sys.time()
+end_time - start_time
+
+testEstimates(pct_mod, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(pct_mod))
+
+pct_summary <- pooled_summary(pct_mod) |> 
+  mutate(across(estimate:conf.high, exp))
+pct_summary
+
+# saving robustness models
+saveRDS(aft_mod, file = "models/robustness_affordability_2024.RDS")
+saveRDS(pct_mod, file = "models/robustness_pca_2024.RDS")
