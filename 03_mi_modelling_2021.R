@@ -297,58 +297,63 @@ testModels(pca_fit, null_fit, method = "D3")
 saveRDS(reg_fit, "models/reg_fit_2021.RDS")
 saveRDS(pca_fit, "models/pca_fit_2021.RDS")
 
-# income interaction -------------------------------------------------
+# robustness check - checking linearity ---------------------------------
 
-imp_mitml <- within(imp_mitml, {
-  income_quartile <- cut_number(income, n = 4, labels = c("1","2","3","4"))
-  first_quartile <- case_when(income_quartile == "1" ~ 1, .default = 0)
-  second_quartile <- case_when(income_quartile == "2" ~ 1, .default = 0)
-  third_quartile <- case_when(income_quartile == "3" ~ 1, .default = 0)
-  renters <- case_when(homeowner == 0 ~ 1, .default = 0)
-})
-
-inc_fit <- with(data = imp_mitml, {
-  lmer(immigSelf ~ private_renting + social_housing + #homeowner +
-         male + 
-         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
-         no_religion + 
-         age + uni +
-         c1_c2 + d_e + non_uk_born + 
-         non_uk_pct + pop_density + pop_density_change +
-         over_65_pct + under_16_pct + 
-         degree_pct +
-         social_rented_pct +
-         region_code +
-         (income * renters * affordability) +
-         (1|LAD), REML = FALSE)
-})
-
-testEstimates(inc_fit, extra.pars = TRUE)
-inc_fit |> map_dbl(AIC)
-reg_fit |> map_dbl(AIC)
-
-# income quartile interaction ------------------------------------------
+imp_binned <- within(imp_mitml, {
+  afford_tert <- cut_number(affordability, n = 3, labels = c("1","2","3"))
+  second_afford <- case_when(afford_tert == "2" ~ 1, .default = 0)
+  third_afford <- case_when(afford_tert == "3" ~ 1, .default = 0)
   
-inc_qrt <- with(data = imp_mitml, {
-  lmer(immigSelf ~ private_renting + social_housing + #homeowner +
+  pc1_tert <- cut_number(pc1, n = 3, labels = c("1","2","3"))
+  second_pc1 <- case_when(pc1_tert == "2" ~ 1, .default = 0)
+  third_pc1 <- case_when(pc1_tert == "3" ~ 1, .default = 0)
+  
+  pc2_tert <- cut_number(pc2, n = 3, labels = c("1","2","3"))
+  second_pc2 <- case_when(pc2_tert == "2" ~ 1, .default = 0)
+  third_pc2 <- case_when(pc2_tert == "3" ~ 1, .default = 0)
+})
+
+aft_mod <- with(data = imp_binned, {
+  lmer(immigSelf ~ private_renting +
          male + 
          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
          no_religion + 
-         age + uni +
+         age + income + uni +
          c1_c2 + d_e + non_uk_born + 
          non_uk_pct + pop_density + pop_density_change +
          over_65_pct + under_16_pct + 
          degree_pct +
          social_rented_pct +
          region_code +
-         second_quartile + third_quartile +
-         (first_quartile * affordability * renters) +
+         (social_housing * second_afford) +
+         (social_housing * third_afford) +
+         (homeowner * second_afford) +
+         (homeowner * third_afford) +
          (1|LAD), REML = FALSE)
 })
 
-testEstimates(inc_qrt, extra.pars = TRUE)
-anova.mitml.result(reg_fit, inc_qrt, method = "D3")
-map2(.x = reg_fit, .y = inc_qrt, .f = anova)
+testEstimates(aft_mod)
+
+pct_mod <- with(data = imp_binned, {
+  lmer(immigSelf ~ private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         (social_housing * second_pc1) +
+         (social_housing * third_pc1) +
+         (homeowner * second_pc2) +
+         (homeowner * third_pc2) +
+         (1|LAD), REML = FALSE)
+})
+
+testEstimates(pct_mod)
 
 # predictions ------------------------------------------------------------
 
@@ -585,10 +590,10 @@ colnames(pooled_ci_reg) <- reg_params
 
 # calculate the 95% Confidence Intervals using the Percentile method
 reg_cis <- map_df(pooled_ci_reg, function(x) {
-  quantile(x, probs = c(0.025, 0.975))
+  quantile(x, probs = c(0.025, 0.5, 0.975))
 }) |> 
-  mutate(term = colnames(pooled_ci_reg), estimate = NA, .before = 1) |> 
-  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+  mutate(term = colnames(pooled_ci_reg), .before = 1) |> 
+  rename(estimate = `50%`, `2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
 
 # pooled estimate and wald intervals for comparison
 pooled_reg <- pool(reg_fit_mice)
@@ -608,9 +613,9 @@ reg_cis |>
                      colour = Method),
                  linewidth = 1.2,
                  position = position_dodge(width = 0.2)) +
-  geom_point(data = wald_reg,
-             aes(x = estimate, y = term),
-             shape = 21, size = 3, fill = "white") +
+  geom_point(aes(x = estimate, y = term, colour = Method),
+             shape = 21, size = 3, fill = "white",
+             position = position_dodge(width = 0.2)) +
   scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
@@ -677,10 +682,10 @@ colnames(pooled_ci_pca) <- pca_params
 
 # calculate the 95% Confidence Intervals using the Percentile method
 pca_cis <- map_df(pooled_ci_pca, function(x) {
-  quantile(x, probs = c(0.025, 0.975))
+  quantile(x, probs = c(0.025, 0.5, 0.975))
 }) |> 
-  mutate(term = colnames(pooled_ci_pca), estimate = NA, .before = 1) |> 
-  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+  mutate(term = colnames(pooled_ci_pca), .before = 1) |> 
+  rename(estimate = `50%`, `2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
 
 # pooled estimate and wald intervals for comparison
 pooled_pca <- pool(pca_fit_mice)
@@ -700,9 +705,9 @@ pca_cis |>
                      colour = Method),
                  linewidth = 1.2,
                  position = position_dodge(width = 0.2)) +
-  geom_point(data = wald_pca,
-             aes(x = estimate, y = term),
-             shape = 21, size = 3, fill = "white") +
+  geom_point(aes(x = estimate, y = term, colour = Method),
+             shape = 21, size = 3, fill = "white",
+             position = position_dodge(width = 0.2)) +
   scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
