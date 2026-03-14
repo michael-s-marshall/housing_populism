@@ -235,10 +235,10 @@ colnames(pooled_ci_pri) <- my_params
 
 # calculate the 95% Confidence Intervals using the Percentile method
 pooled_cis <- map_df(pooled_ci_pri, function(x) {
-  quantile(x, probs = c(0.025, 0.975))
+  quantile(x, probs = c(0.025, 0.5, 0.975))
 }) |> 
-  mutate(term = colnames(pooled_ci_pri), estimate = NA, .before = 1) |> 
-  rename(`2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
+  mutate(term = colnames(pooled_ci_pri), .before = 1) |> 
+  rename(estimate = `50%`, `2.5 %` = `2.5%`, `97.5 %` = `97.5%`)
 
 # pooled estimate and wald intervals for comparison
 pooled_pri <- pool(pri_fit_mice)
@@ -258,9 +258,9 @@ pooled_cis |>
                      colour = Method),
                  linewidth = 1.2,
                  position = position_dodge(width = 0.2)) +
-  geom_point(data = wald_pri,
-             aes(x = estimate, y = term),
-             shape = 21, size = 3, fill = "white") +
+  geom_point(aes(x = estimate, y = term, colour = Method),
+             shape = 21, size = 3, fill = "white",
+             position = position_dodge(width = 0.2)) +
   scale_colour_viridis_d() +
   theme_bw() +
   labs(x = "Estimate", y = NULL,
