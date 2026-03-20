@@ -52,7 +52,6 @@ sum_na(dat)
 # imputation ---------------------------------------------------------------------
 
 # initialize the MICE model
-#init <- mice(dat, maxit = 0)
 meth <- character(ncol(dat))
 names(meth) <- colnames(dat)
 pred <- make.predictorMatrix(dat)

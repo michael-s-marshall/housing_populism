@@ -42,21 +42,23 @@ dat <- dat |>
   mutate(social_housing.prices = social_housing * prices,
          homeowner.prices = homeowner * prices,
          region_code = as.factor(region_code),
-         LAD = as.integer(as.factor(LAD)))
+         LAD = as.integer(as.factor(LAD)),
+         uni = as.factor(uni))
 
 sum_na(dat)
 
 # imputation ---------------------------------------------------------------------
 
 # initialize the MICE model
-init <- mice(dat, maxit = 0)
-meth <- init$method
-pred <- init$predictorMatrix
+meth <- character(ncol(dat))
+names(meth) <- colnames(dat)
+pred <- make.predictorMatrix(dat)
 
 meth["income"] <- "2l.pan"
 meth["uni"] <- "logreg"
 meth["social_housing.prices"]   <- "~ I(social_housing * prices)"
 meth["homeowner.prices"]   <- "~ I(homeowner * prices)"
+meth["no_religion"] <- meth["c1_c2"] <- meth["d_e"] <- meth["social_housing"] <- meth["private_renting"] <- meth["homeowner"] <- meth["non_uk_born"] <- meth["edu_20plus"] <- meth["edu_15"] <- meth["edu_16"] <- meth["pub_job"] <- meth["p_hh_size"] <- meth["cohabiting"] <- meth["disabled"] <- "pmm"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
@@ -70,9 +72,8 @@ pred["uni",]
 pred["income",]
 
 # multiple imputation
-imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
-
-imp_mice$imp
+set.seed(123)
+imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, printFlag = FALSE)
 
 # diagnostics ------------------------------------------------------------------
 
