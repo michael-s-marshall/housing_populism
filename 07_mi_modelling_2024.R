@@ -44,16 +44,17 @@ dat <- dat |>
          social_housing.pc1 = social_housing * pc1,
          homeowner.pc2 = homeowner * pc2,
          region_code = as.factor(region_code),
-         LAD = as.integer(as.factor(LAD)))
+         LAD = as.integer(as.factor(LAD)),
+         uni = as.factor(uni))
 
 sum_na(dat)
 
 # imputation ---------------------------------------------------------------------
 
-# Initialize the MICE model
-init <- mice(dat, maxit = 0)
-meth <- init$method
-pred <- init$predictorMatrix
+# initialize the MICE model
+meth <- character(ncol(dat))
+names(meth) <- colnames(dat)
+pred <- make.predictorMatrix(dat)
 
 meth["income"] <- "2l.pan"
 meth["uni"] <- "logreg"
@@ -61,6 +62,7 @@ meth["social_housing.affordability"]   <- "~ I(social_housing * affordability)"
 meth["homeowner.affordability"]   <- "~ I(homeowner * affordability)"
 meth["social_housing.pc1"]   <- "~ I(social_housing * pc1)"
 meth["homeowner.pc2"]   <- "~ I(homeowner * pc2)"
+meth["no_religion"] <- meth["social_housing"] <- meth["private_renting"] <- meth["homeowner"] <- meth["non_uk_born"] <- meth["edu_20plus"] <- meth["edu_15"] <- meth["edu_16"] <- meth["pub_job"] <- meth["p_hh_size"] <- meth["cohabiting"] <- meth["disabled"] <- "pmm"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
@@ -74,9 +76,8 @@ pred["uni",]
 pred["income",]
 
 # multiple imputation
-imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, seed = 123, printFlag = FALSE)
-
-imp_mice$imp
+set.seed(123)
+imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, printFlag = FALSE)
 
 # diagnostics ------------------------------------------------------------------
 
