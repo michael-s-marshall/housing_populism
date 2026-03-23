@@ -103,7 +103,7 @@ ggsave("viz/pca_map_quartiles.png",
 
 # PCA category map with London overlaid ---------------------------------------
 
-full_cart |> 
+p5 <- full_cart |> 
   drop_na(pc1) |> 
   ggplot() +
   geom_sf(aes(fill = pc_cat)) +
@@ -112,5 +112,14 @@ full_cart |>
   labs(fill = "PCA Category") +
   theme_void()
 
+p5
+
 ggsave("viz/pca_map_categories.png",
+       width = 25.5, height = 16.575, unit = "cm")
+
+# combined final plot ---------------------------------------------------------
+
+p5 + p3 / p4 + plot_layout(widths = c(2.3, 1.2))
+
+ggsave("viz/pca_map_full.png",
        width = 25.5, height = 16.575, unit = "cm")
