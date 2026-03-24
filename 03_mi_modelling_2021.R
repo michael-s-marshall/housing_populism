@@ -604,6 +604,86 @@ comp_home |>
 
 my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
 
+# pca moderation plot ----------------------------------------------------------------
+
+pc1_quantiles <- seq(min(dat$pc1),max(dat$pc1),((max(dat$pc1)-min(dat$pc1))/10))
+pc2_quantiles <- seq(min(dat$pc2),max(dat$pc2),((max(dat$pc2)-min(dat$pc2))/10))
+
+pca2_home <- map(pca_fit, function(m) {
+  avg_comparisons(m,
+                  variables = "homeowner", 
+                  by = "pc2",
+                  newdata = datagrid(pc2 = pc2_quantiles))
+})
+
+# moderation effect
+pca1_sohs <- map(pca_fit, function(m) {
+  avg_comparisons(m,
+                  variables = "social_housing", 
+                  by = "pc1",        
+                  newdata = datagrid(pc1 = pc1_quantiles))
+})
+
+viridis_scale <- viridis::viridis(2)
+
+h1 <- pca2_home |> 
+  my_pool(pc2) |> 
+  mutate(Tenure = "Homeowner") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc2, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc2, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc2), alpha = 0.4) +
+  labs(
+    x = "PC2 (standardised)",
+    y = "Estimate: Opposition to migration",
+    fill = "Tenure", colour = "Tenure"
+  ) +
+  coord_cartesian(ylim = c(-0.5, 2.25)) +
+  scale_colour_manual(values = viridis_scale[1]) +
+  scale_fill_manual(values = viridis_scale[1]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
+
+s1 <- pca1_sohs |> 
+  my_pool(pc1) |> 
+  mutate(Tenure = "Social housing") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc1, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc1, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc1), alpha = 0.4) +
+  labs(
+    x = "PC1 (standardised)",
+    y = "Estimate: Opposition to migration",
+    fill = "Tenure", colour = "Tenure"
+  ) +
+  coord_cartesian(ylim = c(-0.5, 2.25)) +
+  theme_bw() +
+  scale_colour_manual(values = viridis_scale[2]) +
+  scale_fill_manual(values = viridis_scale[2]) +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12),
+        panel.grid.minor = element_blank())
+
+require(patchwork)
+
+h1 + s1 + plot_layout(axis_titles = "collect",
+                      guides = "collect") & 
+  theme(
+    legend.spacing.y = unit(0, "cm"),     
+    legend.margin = ggplot2::margin(0, 0, 0, 0),   
+    legend.box.margin = ggplot2::margin(-5, 0, -5, 0) 
+  )
+
+my_ggsave("viz/AMES_moderation_pca_fit_2021.png")
+
 # joint coef plot ---------------------------------------------------------------------
 
 pooled_reg_summary <- pooled_summary(reg_fit)
