@@ -255,29 +255,6 @@ confint.mitml.testEstimates(testEstimates(reg_fit))
 
 anova.mitml.result(reg_fit, lvl2_fit, method = "D3")
 
-# removing degree pct -----------------------------------------------------------------
-
-deg_fit <- with(data = imp_mitml, {
-  lmer(immigSelf ~ private_renting +
-         male + 
-         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
-         no_religion + 
-         age + income + uni +
-         c1_c2 + d_e + non_uk_born + 
-         non_uk_pct + pop_density + pop_density_change +
-         over_65_pct + under_16_pct + 
-         #degree_pct +
-         social_rented_pct +
-         region_code +
-         (social_housing * affordability) + 
-         (homeowner * affordability) +
-         (1|LAD), REML = FALSE)
-})
-
-testEstimates(deg_fit, extra.pars = TRUE)
-
-confint.mitml.testEstimates(testEstimates(deg_fit))
-
 # mimicking adler and ansell (2019) -----------------------------------------------------------------
 
 ans_fit <- with(data = imp_mitml, {
@@ -301,6 +278,31 @@ testEstimates(ans_fit, extra.pars = TRUE)
 confint.mitml.testEstimates(testEstimates(ans_fit))
 anova.mitml.result(ans_fit, reg_fit, method = "D3")
 map2(.x = ans_fit, .y = reg_fit, .f = anova)
+saveRDS(ans_fit, "models/adler_ansell_fit_2021.RDS")
+
+# mimicking adler and ansell (2019) but incl. degree pct ------------------------
+
+ans_fit2 <- with(data = imp_mitml, {
+  lmer(immigSelf ~ #private_renting +
+         male + 
+         white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race + 
+         no_religion + 
+         age + income + uni +
+         c1_c2 + d_e + non_uk_born + 
+         non_uk_pct + pop_density + pop_density_change +
+         over_65_pct + under_16_pct + 
+         degree_pct +
+         social_rented_pct +
+         region_code +
+         #social_housing + 
+         (homeowner * affordability) +
+         (1|LAD), REML = FALSE)
+})
+
+testEstimates(ans_fit2, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(ans_fit2))
+anova.mitml.result(ans_fit2, reg_fit, method = "D3")
+map2(.x = ans_fit2, .y = reg_fit, .f = anova)
 
 ## PCA results ---------------------------------------------------------------------
 
@@ -523,6 +525,45 @@ ggplot(pooled_ans) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
 my_ggsave(filename = "viz/predicted_outcome_adler_ansell_2021.png")
+
+# predictions: mimicking Adler and Ansell (2019) incl. degree pct --------------
+
+# avg predictions for homeownership
+grid_ans2 <- datagrid(
+  model = ans_fit2[[1]], 
+  affordability = afford_quantiles, 
+  homeowner = unique 
+)
+
+ans2_pred_list <- map(ans_fit2, function(m) {
+  avg_predictions(m,
+                  by = c("homeowner","affordability"),
+                  newdata = grid_ans2)
+  
+})
+
+pooled_ans2 <- my_pool(ans2_pred_list, c(homeowner, affordability))
+
+ggplot(pooled_ans2) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(homeowner)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(homeowner),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12)) +
+  scale_colour_manual(values = viridis_scale) +
+  scale_fill_manual(values = viridis_scale) +
+  labs(colour = "Homeowner", fill = "Homeowner")
+
+my_ggsave(filename = "viz/predicted_outcome_adler_ansell_2021_incl_degree_pct.png")
 
 # moderation effect ------------------------------------------------------------
 
