@@ -45,7 +45,8 @@ dat <- dat |>
          homeowner.pc2 = homeowner * pc2,
          region_code = as.factor(region_code),
          LAD = as.integer(as.factor(LAD)),
-         uni = as.factor(uni))
+         uni = as.factor(uni),
+         brexit_party = as.factor(brexit_party))
 
 sum_na(dat)
 
@@ -58,6 +59,7 @@ pred <- make.predictorMatrix(dat)
 
 meth["income"] <- "2l.pan"
 meth["uni"] <- "logreg"
+meth["brexit_party"] <- "logreg"
 meth["social_housing.affordability"]   <- "~ I(social_housing * affordability)"
 meth["homeowner.affordability"]   <- "~ I(homeowner * affordability)"
 meth["social_housing.pc1"]   <- "~ I(social_housing * pc1)"
@@ -72,14 +74,53 @@ pred["uni","LAD"] <- 0
 pred["uni","disabled"] <- 0
 pred["uni","part_time"] <- 0
 pred["uni","full_time"] <- 0
+pred["brexit_party","LAD"] <- 0
+pred[,"immigSelf0"] <- 0
+pred[,"immigSelf1"] <- 0
+pred[,"immigSelf2"] <- 0
+pred[,"immigSelf3"] <- 0
+pred[,"immigSelf4"] <- 0
+pred[,"immigSelf5"] <- 0
+pred[,"immigSelf6"] <- 0
+pred[,"immigSelf7"] <- 0
+pred[,"immigSelf8"] <- 0
+pred[,"immigSelf9"] <- 0
+pred[,"immigSelf10"] <- 0
+pred[,"dem_v_dissatisfied"] <- 0
+pred[,"dem_dissatisfied"] <- 0
+pred[,"dem_satisfied"] <- 0
+pred[,"dem_v_satisfied"] <- 0
+pred["brexit_party","immigSelf0"] <- 1
+pred["brexit_party","immigSelf1"] <- 1
+pred["brexit_party","immigSelf2"] <- 1
+pred["brexit_party","immigSelf3"] <- 1
+pred["brexit_party","immigSelf4"] <- 1
+pred["brexit_party","immigSelf5"] <- 1
+pred["brexit_party","immigSelf6"] <- 1
+pred["brexit_party","immigSelf7"] <- 1
+pred["brexit_party","immigSelf8"] <- 1
+pred["brexit_party","immigSelf9"] <- 1
+pred["brexit_party","immigSelf10"] <- 1
+pred["brexit_party","dem_v_dissatisfied"] <- 1
+pred["brexit_party","dem_dissatisfied"] <- 1
+pred["brexit_party","dem_satisfied"] <- 1
+pred["brexit_party","dem_v_satisfied"] <- 1
 pred["uni",]
 pred["income",]
+pred["brexit_party",]
 
 # multiple imputation
 set.seed(123)
 imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, printFlag = FALSE)
 
+map_dbl(imp_mice$imp$brexit_party, .f = function(x) {
+  sum(x == "1")
+})
+
 # diagnostics ------------------------------------------------------------------
+
+ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
+  geom_density()
 
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = income)) +
@@ -524,3 +565,7 @@ pct_summary
 # saving robustness models
 saveRDS(aft_mod, file = "models/robustness_affordability_2024.RDS")
 saveRDS(pct_mod, file = "models/robustness_pca_2024.RDS")
+
+# saving imp_mice --------------------------------------------------------
+
+saveRDS(imp_mice, "models/imp_mice_2024.RDS")

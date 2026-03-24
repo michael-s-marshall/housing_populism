@@ -109,6 +109,21 @@ dat$chinese <- ifelse(dat$p_ethnicity == 14, 1, 0)
 dat$mixed_race <- ifelse(dat$p_ethnicity %in% c(3, 4, 5, 6), 1, 0)
 dat$pub_job <- ifelse(dat$p_job_sector == 2, 1, 0)
 dat$pub_job[is.na(dat$p_job_sector)] <- NA
+dat$immigSelf0 <- ifelse(dat$immigSelf == 0, 1, 0)
+dat$immigSelf1 <- ifelse(dat$immigSelf == 1, 1, 0)
+dat$immigSelf2 <- ifelse(dat$immigSelf == 2, 1, 0)
+dat$immigSelf3 <- ifelse(dat$immigSelf == 3, 1, 0)
+dat$immigSelf4 <- ifelse(dat$immigSelf == 4, 1, 0)
+dat$immigSelf5 <- ifelse(dat$immigSelf == 5, 1, 0)
+dat$immigSelf6 <- ifelse(dat$immigSelf == 6, 1, 0)
+dat$immigSelf7 <- ifelse(dat$immigSelf == 7, 1, 0)
+dat$immigSelf8 <- ifelse(dat$immigSelf == 8, 1, 0)
+dat$immigSelf9 <- ifelse(dat$immigSelf == 9, 1, 0)
+dat$immigSelf10 <- ifelse(dat$immigSelf == 10, 1, 0)
+dat$dem_v_dissatisfied <- ifelse(dat$satDemUK == 1, 1, 0)
+dat$dem_dissatisfied <- ifelse(dat$satDemUK == 2, 1, 0)
+dat$dem_satisfied <- ifelse(dat$satDemUK == 3, 1, 0)
+dat$dem_v_satisfied <- ifelse(dat$satDemUK == 4, 1, 0)
 
 dat |> count(generalElectionVote, generalElectionVoteNonVoter)
 
@@ -154,6 +169,8 @@ dat <- dat %>%
          full_time, part_time, unemployed, retired,
          pub_job,
          p_hh_size, cohabiting, disabled,
+         immigSelf0, immigSelf1, immigSelf2, immigSelf3, immigSelf4, immigSelf5, immigSelf6, immigSelf7, immigSelf8, immigSelf9, immigSelf10,
+         dem_v_dissatisfied, dem_dissatisfied, dem_satisfied, dem_v_satisfied,
          all_of(level_twos))
 
 sum_na(dat)
@@ -256,7 +273,7 @@ nrow(dat) - (missing_scotland + missing_lad + missing_dv) # 27789 obs remaining
 # modelling dataset ------------------------------------------
 
 dat <- dat |> 
-  drop_na(degree_pct, brexit_party)
+  drop_na(degree_pct)
 
 nrow(dat)
 

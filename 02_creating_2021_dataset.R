@@ -107,6 +107,26 @@ dat$pub_job <- ifelse(dat$p_job_sector == 2, 1, 0)
 dat$pub_job[is.na(dat$p_job_sector)] <- NA
 
 dat$immigSelf[dat$immigSelf == 9999] <- NA
+dat$immigEcon <- as.factor(dat$immigEcon)
+dat$labour <- ifelse(dat$generalElectionVote == 2, 1, 0)
+dat$labour[is.na(dat$generalElectionVote)] <- NA
+dat$tory <- ifelse(dat$generalElectionVote == 1, 1, 0)
+dat$tory[is.na(dat$generalElectionVote)] <- NA
+dat$lib_dem <- ifelse(dat$generalElectionVote == 3, 1, 0)
+dat$lib_dem[is.na(dat$generalElectionVote)] <- NA
+dat$green <- ifelse(dat$generalElectionVote == 7, 1, 0)
+dat$green[is.na(dat$generalElectionVote)] <- NA
+dat$reform <- ifelse(dat$generalElectionVote == 12, 1, 0)
+dat$reform[is.na(dat$generalElectionVote)] <- NA
+
+dat |> 
+  ggplot(aes(x = as.factor(immigEcon), y = immigSelf)) +
+  geom_boxplot()
+
+dat |> 
+  ggplot(aes(x = as_factor(generalElectionVote), y = immigSelf)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90))
 
 ##############################################################
 # level 2 vars -----------------------------------------------
@@ -134,6 +154,7 @@ dat <- dat %>%
          full_time, part_time, unemployed, retired,
          pub_job,
          p_hh_size, cohabiting, disabled,
+         immigEcon, labour, tory, lib_dem, green, reform,
          all_of(level_twos)
   )
 
@@ -250,7 +271,7 @@ nrow(dat) - (missing_scotland + missing_dv) # 22951 obs remaining
 # modelling dataset ------------------------------------------
 
 dat <- dat |> 
-  drop_na(degree_pct, affordability, immigSelf)
+  drop_na(degree_pct, affordability)
 
 nrow(dat)
 

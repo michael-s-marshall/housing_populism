@@ -38,7 +38,7 @@ dat |> sum_na()
 unselect <- dat |> select(contains("raw"), id) |> names()
 
 dat <- dat |> 
-  select(-all_of(unselect), -affordability_log, -affordability, -imp_flag) |> 
+  select(-all_of(unselect), -affordability_log, -affordability) |> 
   mutate(social_housing.prices = social_housing * prices,
          homeowner.prices = homeowner * prices,
          region_code = as.factor(region_code),
@@ -55,21 +55,40 @@ names(meth) <- colnames(dat)
 pred <- make.predictorMatrix(dat)
 
 meth["income"] <- "2l.pan"
+meth["immigSelf"] <- "2l.pmm"
 meth["uni"] <- "logreg"
 meth["social_housing.prices"]   <- "~ I(social_housing * prices)"
 meth["homeowner.prices"]   <- "~ I(homeowner * prices)"
-meth["no_religion"] <- meth["c1_c2"] <- meth["d_e"] <- meth["social_housing"] <- meth["private_renting"] <- meth["homeowner"] <- meth["non_uk_born"] <- meth["edu_20plus"] <- meth["edu_15"] <- meth["edu_16"] <- meth["pub_job"] <- meth["p_hh_size"] <- meth["cohabiting"] <- meth["disabled"] <- "pmm"
+meth["no_religion"] <- meth["c1_c2"] <- meth["d_e"] <- meth["social_housing"] <- meth["private_renting"] <- meth["homeowner"] <- meth["non_uk_born"] <- meth["edu_20plus"] <- meth["edu_15"] <- meth["edu_16"] <- meth["pub_job"] <- meth["p_hh_size"] <- meth["cohabiting"] <- meth["disabled"] <- meth["labour"] <- meth["tory"] <- meth["lib_dem"] <- meth["green"] <- meth["reform"] <- "pmm"
 
 pred[,"LAD"] <- -2
 pred["LAD","LAD"] <- 0
 pred["income", "immigSelf"] <- 1
 pred["income", "income"] <- 0
+pred[,"labour"] <- 0
+pred[,"tory"] <- 0
+pred[,"lib_dem"] <- 0
+pred[,"green"] <- 0
+pred[,"reform"] <- 0
+pred[,"immigEcon"] <- 0
+pred["immigSelf","labour"] <- 1
+pred["immigSelf","tory"] <- 1
+pred["immigSelf","lib_dem"] <- 1
+pred["immigSelf","green"] <- 1
+pred["immigSelf","reform"] <- 1
+pred["immigSelf","immigEcon"] <- 1
 pred["uni","LAD"] <- 0
 pred["uni","disabled"] <- 0
 pred["uni","part_time"] <- 0
 pred["uni","full_time"] <- 0
 pred["uni",]
 pred["income",]
+pred["immigSelf",]
+pred["labour","LAD"] <- 0
+pred["tory","LAD"] <- 0
+pred["lib_dem","LAD"] <- 0
+pred["green","LAD"] <- 0
+pred["reform","LAD"] <- 0
 
 # multiple imputation
 set.seed(123)
