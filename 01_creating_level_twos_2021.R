@@ -425,7 +425,8 @@ rm(ta_dat, ta_predictors, outcome, in_train,
    model_lm, model_rf, model_nn, model_en, pred_dat)
 
 rt_dat <- dat %>% 
-  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change) %>% 
+  select(-la_code, -affordability_log, -ta_rate, -private_rented_pct, -pop_density_change,
+         -affordability, -ta_rate_full) %>% 
   na.omit()
 
 rt_dat <- rt_dat |> 
@@ -444,7 +445,7 @@ test_predictors <- rt_predictors[-in_train,] |> as.data.frame()
 train_outcome <- outcome[in_train]
 test_outcome <- outcome[-in_train]
 
-numerics <- train_predictors |> select(degree_pct:ta_rate_full) |> names()
+numerics <- train_predictors |> select(degree_pct:underoccupied_pct) |> names()
 
 # scaling and centering
 x_trans <- preProcess(train_predictors[,numerics])
@@ -652,7 +653,8 @@ pc_cat_tab <- dat |>
   ) |> 
   mutate(rent_raw = exp(rent_raw))
 
-pc_cat_tab
+pc_cat_tab |> 
+  as.data.frame()
 
 write.csv(pc_cat_tab, "tables/pca_categories_summary_stats_2021.csv")
 

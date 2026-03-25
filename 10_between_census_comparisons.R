@@ -9,6 +9,13 @@ rmse <- function(y, yhat){
   return(out)
 }
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # importing and cleaning data -------------------------------------------------
 
 owners_21 <- read_csv("data/between_census/homeownership_2021.csv")
@@ -80,6 +87,8 @@ owners_full |>
        caption = "Homeownership percentage at local authority district level in 2011 and 2021. Source: Census.") +
   my_theme()
 
+my_ggsave("viz/between_census_homeownership.png")
+
 # overcrowded % --------------------------------------------------------------
 
 # correlation
@@ -105,6 +114,8 @@ occ_full |>
        caption = "Overcrowded percentage at local authority district level in 2011 and 2021. Source: Census.") +
   my_theme()
 
+my_ggsave("viz/between_census_overcrowding.png")
+
 # underoccupied % --------------------------------------------------------------
 
 # correlation
@@ -129,3 +140,4 @@ occ_full |>
        caption = "Underoccupied percentage at local authority district level in 2011 and 2021. Source: Census.") +
   my_theme()
 
+my_ggsave("viz/between_census_underoccupying.png")

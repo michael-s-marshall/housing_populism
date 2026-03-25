@@ -120,7 +120,10 @@ map_dbl(imp_mice$imp$brexit_party, .f = function(x) {
 # diagnostics ------------------------------------------------------------------
 
 ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
-  geom_density()
+  geom_density() +
+  labs(x = "Voted Reform UK in 2024 General Election")
+
+my_ggsave("viz/appendix_imputation_reform.png")
 
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = income)) +

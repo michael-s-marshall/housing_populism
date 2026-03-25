@@ -103,11 +103,16 @@ imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, p
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = immigSelf)) +
   geom_boxplot() +
-  labs(x = "Imputation number")
+  labs(x = "Imputation number", y = "Opposition to migration")
+
+my_ggsave("viz/appendix_imputation_migration_boxplot.png")
 
 # ggmice income density plot
 ggmice(imp_mice, aes(x = immigSelf, group = .imp)) +
-  geom_density()
+  geom_density() + 
+  labs(x = "Opposition to migration")
+
+my_ggsave("viz/appendix_imputation_migration_density.png")
 
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = income)) +
@@ -185,6 +190,7 @@ null_fit <- with(data = imp_mitml, {
 })
 
 testEstimates(null_fit, extra.pars = TRUE)
+confint.mitml.testEstimates(testEstimates(null_fit))
 
 # level 1 models -----------------------------------------------------------
 
