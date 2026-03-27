@@ -337,6 +337,45 @@ testModels(pca_fit, null_fit, method = "D3")
 saveRDS(reg_fit, "models/reg_fit_2021.RDS")
 saveRDS(pca_fit, "models/pca_fit_2021.RDS")
 
+# robustness check - logit for PCA -----------------------------------
+
+imp_binary <- within(imp_mitml,{
+  immig_binary <- as.factor(case_when(immigSelf >= 6 ~ 1, .default = 0))
+})
+
+pca_bin <- with(data = imp_binary, {
+  glmer(immig_binary ~ private_renting +
+          male +
+          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+          no_religion +
+          age + income + uni +
+          c1_c2 + d_e + non_uk_born +
+          non_uk_pct + pop_density + pop_density_change +
+          over_65_pct + under_16_pct +
+          degree_pct +
+          social_rented_pct +
+          region_code +
+          (social_housing * pc1) +
+          (homeowner * pc2) +
+          (1|LAD),
+        family = binomial(link = "logit"),
+        control = glmerControl(optimizer = "bobyqa"))
+})
+
+testEstimates(pca_bin, extra.pars = TRUE)
+saveRDS(pca_bin, "models/pca_binary_2021.RDS")
+
+pooled_summary <- function(mitml_obj){
+  out <- as.data.frame(testEstimates(mitml_obj)$estimates[,1]) |> 
+    rownames_to_column(var = "term") |> 
+    bind_cols(confint.mitml.testEstimates(testEstimates(mitml_obj))) |> 
+    rename(estimate = 2, conf.low = 3, conf.high = 4)
+  return(out)
+}
+
+pooled_summary(pca_bin) |> 
+  mutate(across(estimate:conf.high, exp))
+
 # robustness check - checking linearity ---------------------------------
 
 imp_binned <- within(imp_mitml, {
