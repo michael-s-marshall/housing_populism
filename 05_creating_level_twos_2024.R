@@ -487,6 +487,12 @@ dat <- dat |> left_join(rents, by = "la_code")
 
 dat |> sum_na()
 
+# summary statistics of rent
+dat |> 
+  summarise(mean_rent = mean(rent, na.rm = TRUE),
+            sd_rent = sd(rent, na.rm = TRUE)) |> 
+  as.data.frame()
+
 # imputation of rent -------------------------------------------------------
 
 rm(ta_dat, ta_predictors, outcome, in_train, 
