@@ -97,8 +97,8 @@ dat$cohabiting[is.na(dat$p_marital)] <- NA
 dat$soc_class[dat$soc_class == "Other"] <- NA
 dat$c1_c2 <- ifelse(dat$soc_class == "C1-C2", 1, 0)
 dat$d_e <- ifelse(dat$soc_class == "D-E", 1, 0)
-dat$pakistan_bangladesh <- ifelse(dat$p_ethnicity %in% c(8, 9), 1, 0)
-dat$black <- ifelse(dat$p_ethnicity %in% c(11, 12, 13), 1, 0)
+dat$pakistan_bangladesh <- ifelse(dat$p_ethnicity == 8|dat$p_ethnicity ==  9, 1, 0)
+dat$black <- ifelse(dat$p_ethnicity == 11 |dat$p_ethnicity == 12|dat$p_ethnicity == 13, 1, 0)
 dat$white_other <- ifelse(dat$p_ethnicity == 2, 1, 0)
 dat$indian <- ifelse(dat$p_ethnicity == 7, 1, 0)
 dat$chinese <- ifelse(dat$p_ethnicity == 14, 1, 0)
