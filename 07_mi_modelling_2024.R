@@ -153,8 +153,6 @@ imp_mitml <- mids2mitml.list(imp_mice)
 
 # glmer -------------------------------------------------------------------------
 
-start_time <- Sys.time()
-
 nulls_fit <- with(data = imp_mitml, {
   glmer(brexit_party ~ (1|LAD),
         family = binomial(link = "logit"),
@@ -165,8 +163,15 @@ testEstimates(nulls_fit, extra.pars = TRUE)
 
 saveRDS(nulls_fit, file = "models/null_models_mice_2024.RDS")
 
-# fitting the regions inclusive model to each of the imputed datasets
-reg_fit <- with(data = imp_mitml, {
+# reg fit with parallel computing ------------------------------------------
+
+pacman::p_load(future.apply, future)
+
+# cores == imputed datasets (m=5)
+plan(multisession, workers = 5)
+
+# function to define the model
+fit_model <- function(df) {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -181,12 +186,18 @@ reg_fit <- with(data = imp_mitml, {
           (social_housing * affordability) +
           (homeowner * affordability) +
           (1|LAD),
+        data = df,
         family = binomial(link = "logit"),
         control = glmerControl(optimizer = "bobyqa"))
-})
+}
 
-end_time <- Sys.time()
-end_time - start_time
+# parallel models across the mitml.list
+reg_fit_list <- future_lapply(imp_mitml, fit_model, future.seed = TRUE)
+
+# convert back to a mitml.result
+reg_fit <- as.mitml.result(reg_fit_list)
+
+plan(sequential)
 
 testEstimates(reg_fit, extra.pars = TRUE)
 confint.mitml.testEstimates(testEstimates(reg_fit))
@@ -281,7 +292,11 @@ saveRDS(mfx_sohs, file = "models/AMEs_social_affordability_2024.RDS")
 
 start_time <- Sys.time()
 
-pca_fit <- with(imp_mitml, {
+# cores == imputed datasets (m=5)
+plan(multisession, workers = 5)
+
+# function to define the model
+pca_model <- function(df) {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -296,9 +311,18 @@ pca_fit <- with(imp_mitml, {
           (social_housing * pc1) +
           (homeowner * pc2) +
           (1|LAD),
+        data = df,
         family = binomial(link = "logit"),
         control = glmerControl(optimizer = "bobyqa"))
-})
+}
+
+# parallel models across the mitml.list
+pca_fit_list <- future_lapply(imp_mitml, pca_model, future.seed = TRUE)
+
+# convert back to a mitml.result
+pca_fit <- as.mitml.result(pca_fit_list)
+
+plan(sequential)
 
 end_time <- Sys.time()
 end_time - start_time
