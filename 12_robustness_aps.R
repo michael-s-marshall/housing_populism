@@ -14,6 +14,13 @@ pooled_summary <- function(mitml_obj){
   return(out)
 }
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
@@ -189,3 +196,65 @@ pca_summary
 saveRDS(reg_fit, "models/robustness_aps_reg.RDS")
 saveRDS(pca_fit, "models/robustness_aps_pca.RDS")
 saveRDS(imp_mice, "models/robustness_aps_imp_mice.RDS")
+
+# comparison plot ---------------------------------------------
+
+reg_main <- readRDS("models/reg_fit_2024.RDS")
+pca_main <- readRDS("models/pca_fit_2024.RDS")
+
+reg_main |> 
+  pooled_summary() |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  bind_rows(reg_summary, .id = "Model") |> 
+  mutate(Model = case_when(Model == "2" ~ "APS - Qualifications",
+                           Model == "1" ~ "Census - Degrees",
+                           .default = NA)) |> 
+  filter(term %in% c("private_renting","social_housing","homeowner","affordability","social_housing:affordability","affordability:homeowner")) |> 
+  ggplot(aes(x = estimate, y = term)) +
+  geom_vline(xintercept = 1, linetype = "dashed", linewidth = 1.2, colour = "grey") +
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high, colour = Model),
+                 position = position_dodge(width = 0.4),
+                 linewidth = 1.2) +
+  geom_point(aes(colour = Model),
+             shape = 21, fill = "white", size = 3.5,
+             position = position_dodge(width = 0.4)) +
+  theme_bw() +
+  labs(x = "Odds Ratio", y = NULL) +
+  scale_colour_viridis_d() +
+  scale_y_discrete(labels = c("Affordability",
+                              "Homeowner X Affordability",
+                              "Homeowner",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X Affordability"))
+
+my_ggsave("viz/appendix_aps_quals_affordability.png")
+
+pca_main |> 
+  pooled_summary() |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  bind_rows(pca_summary, .id = "Model") |> 
+  mutate(Model = case_when(Model == "2" ~ "APS - Qualifications",
+                           Model == "1" ~ "Census - Degrees",
+                           .default = NA)) |> 
+  filter(term %in% c("private_renting","social_housing","homeowner","pc1","pc2","social_housing:pc1","homeowner:pc2")) |> 
+  ggplot(aes(x = estimate, y = term)) +
+  geom_vline(xintercept = 1, linetype = "dashed", linewidth = 1.2, colour = "grey") +
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high, colour = Model),
+                 position = position_dodge(width = 0.4),
+                 linewidth = 1.2) +
+  geom_point(aes(colour = Model),
+             shape = 21, fill = "white", size = 3.5,
+             position = position_dodge(width = 0.4)) +
+  theme_bw() +
+  labs(x = "Odds Ratio", y = NULL) +
+  scale_colour_viridis_d() +
+  scale_y_discrete(labels = c("Homeowner",
+                              "Homeowner X PC2",
+                              "PC1",
+                              "PC2",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X PC1"))
+
+my_ggsave("viz/appendix_aps_quals_pca.png")
