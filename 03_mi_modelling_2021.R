@@ -343,6 +343,28 @@ imp_binary <- within(imp_mitml,{
   immig_binary <- as.factor(case_when(immigSelf >= 6 ~ 1, .default = 0))
 })
 
+reg_bin <- with(data = imp_binary, {
+  glmer(immig_binary ~ private_renting +
+          male +
+          white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
+          no_religion +
+          age + income + uni +
+          c1_c2 + d_e + non_uk_born +
+          non_uk_pct + pop_density + pop_density_change +
+          over_65_pct + under_16_pct +
+          degree_pct +
+          social_rented_pct +
+          region_code +
+          (social_housing * affordability) +
+          (homeowner * affordability) +
+          (1|LAD),
+        family = binomial(link = "logit"),
+        control = glmerControl(optimizer = "bobyqa"))
+})
+
+testEstimates(reg_bin, extra.pars = TRUE)
+saveRDS(reg_bin, "models/reg_binary_2021.RDS")
+
 pca_bin <- with(data = imp_binary, {
   glmer(immig_binary ~ private_renting +
           male +
@@ -373,8 +395,48 @@ pooled_summary <- function(mitml_obj){
   return(out)
 }
 
+pooled_summary(reg_bin) |> 
+  mutate(across(estimate:conf.high, exp))
+
 pooled_summary(pca_bin) |> 
   mutate(across(estimate:conf.high, exp))
+
+pooled_summary(reg_bin) |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  filter(term %in% c("private_renting","social_housing","affordability","homeowner","social_housing:affordability","affordability:homeowner")) |> 
+  ggplot(aes(x = estimate, xmin = conf.low, xmax = conf.high, y = term)) +
+  geom_vline(xintercept = 1, linewidth = 1.2, linetype = "dashed", colour = "grey") +
+  geom_linerange(linewidth = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.5) +
+  theme_bw() +
+  scale_y_discrete(labels = c("Affordability",
+                              "Affordability X Homeowner",
+                              "Homeowner",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X Affordability")) +
+  labs(x = "Odds Ratio", y = NULL)
+
+my_ggsave("viz/appendix_ORs_logit_reg.png")
+
+pooled_summary(pca_bin) |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  filter(term %in% c("private_renting","social_housing","pc1","homeowner","pc2","social_housing:pc1","homeowner:pc2")) |> 
+  ggplot(aes(x = estimate, xmin = conf.low, xmax = conf.high, y = term)) +
+  geom_vline(xintercept = 1, linewidth = 1.2, linetype = "dashed", colour = "grey") +
+  geom_linerange(linewidth = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.5) +
+  theme_bw() +
+  scale_y_discrete(labels = c("Homeowner",
+                              "Homeowner X PC2",
+                              "PC1",
+                              "PC2",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X PC1")) +
+  labs(x = "Odds Ratio", y = NULL)
+
+my_ggsave("viz/appendix_ORs_logit_pca.png")
 
 # robustness check - checking linearity ---------------------------------
 
