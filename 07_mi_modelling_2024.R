@@ -171,7 +171,7 @@ pacman::p_load(future.apply, future)
 plan(multisession, workers = 5)
 
 # function to define the model
-fit_model <- function(df) {
+reg_model <- function(df) {
   glmer(brexit_party ~ private_renting +
           male +
           white_british + white_other + indian + black + chinese + pakistan_bangladesh + mixed_race +
@@ -192,7 +192,7 @@ fit_model <- function(df) {
 }
 
 # parallel models across the mitml.list
-reg_fit_list <- future_lapply(imp_mitml, fit_model, future.seed = TRUE)
+reg_fit_list <- future_lapply(imp_mitml, reg_model, future.seed = TRUE)
 
 # convert back to a mitml.result
 reg_fit <- as.mitml.result(reg_fit_list)
@@ -229,9 +229,6 @@ my_pool <- function(obj_list, group_vars){
     )
   return(out)
 }
-
-# extract the models
-# reg_models <- getfit(reg_fit)
 
 afford_quantiles <- seq(min(dat$affordability),max(dat$affordability),((max(dat$affordability)-min(dat$affordability))/10))
 
