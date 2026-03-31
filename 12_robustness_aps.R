@@ -21,6 +21,26 @@ my_ggsave <- function(...){
          height = 2309)
 }
 
+pg_ggsave <- function(width = c(90, 140, 190), ...){
+  if(width == 90){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 67.5)
+  } else if (width == 140){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 105)
+  } else {
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 142.5)
+  }
+  
+}
+
 # loading dataset ---------------------------------------------
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
@@ -226,9 +246,13 @@ reg_main |>
                               "Homeowner",
                               "Private renting",
                               "Social housing",
-                              "Social housing X Affordability"))
+                              "Social housing X Affordability")) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7))
 
-my_ggsave("viz/appendix_aps_quals_affordability.png")
+pg_ggsave(width = 190, "viz/appendix_aps_quals_affordability.pdf")
 
 pca_main |> 
   pooled_summary() |> 
@@ -255,6 +279,10 @@ pca_main |>
                               "PC2",
                               "Private renting",
                               "Social housing",
-                              "Social housing X PC1"))
+                              "Social housing X PC1")) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7))
 
-my_ggsave("viz/appendix_aps_quals_pca.png")
+pg_ggsave(width = 190, "viz/appendix_aps_quals_pca.pdf")

@@ -16,6 +16,26 @@ my_ggsave <- function(...){
          height = 2309)
 }
 
+pg_ggsave <- function(width = c(90, 140, 190), ...){
+  if(width == 90){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 67.5)
+  } else if (width == 140){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 105)
+  } else {
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 142.5)
+  }
+  
+}
+
 # importing and cleaning data -------------------------------------------------
 
 owners_21 <- read_csv("data/between_census/homeownership_2021.csv")
@@ -61,8 +81,8 @@ my_theme <- function(){
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         plot.caption.position = "plot",
-        plot.caption = element_text(hjust = 0,
-                                    size = 12))
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 7))
 }
 
 # correlation
@@ -83,11 +103,10 @@ owners_full |>
   ggplot(aes(x = owned_pct_11, y = owned_pct_21)) +
   geom_point(alpha = 1/3) +
   geom_smooth(method = "lm") +
-  labs(x = "Homeownership percentage 2011", y = "Homeownership percentage 2021",
-       caption = "Homeownership percentage at local authority district level in 2011 and 2021. Source: Census.") +
+  labs(x = "Homeownership percentage 2011", y = "Homeownership percentage 2021") +
   my_theme()
 
-my_ggsave("viz/between_census_homeownership.png")
+pg_ggsave(width = 140, "viz/between_census_homeownership.pdf")
 
 # overcrowded % --------------------------------------------------------------
 
@@ -110,11 +129,10 @@ occ_full |>
   ggplot(aes(x = log(overcrowded_pct_11), y = log(overcrowded_pct_21))) +
   geom_point(alpha = 1/3) +
   geom_smooth(method = "lm") +
-  labs(x = "Overcrowded percentage 2011 (log)", y = "Overcrowded percentage 2021 (log)",
-       caption = "Overcrowded percentage at local authority district level in 2011 and 2021. Source: Census.") +
+  labs(x = "Overcrowded percentage 2011 (log)", y = "Overcrowded percentage 2021 (log)") +
   my_theme()
 
-my_ggsave("viz/between_census_overcrowding.png")
+pg_ggsave(width = 140, "viz/between_census_overcrowding.pdf")
 
 # underoccupied % --------------------------------------------------------------
 
@@ -136,8 +154,7 @@ occ_full |>
   ggplot(aes(x = underoccupied_pct_11, y = underoccupied_pct_21)) +
   geom_point(alpha = 1/3) +
   geom_smooth(method = "lm") +
-  labs(x = "Underoccupied percentage 2011", y = "Underoccupied percentage 2021 (log)",
-       caption = "Underoccupied percentage at local authority district level in 2011 and 2021. Source: Census.") +
+  labs(x = "Underoccupied percentage 2011", y = "Underoccupied percentage 2021 (log)") +
   my_theme()
 
-my_ggsave("viz/between_census_underoccupying.png")
+pg_ggsave(width = 140, "viz/between_census_underoccupying.pdf")
