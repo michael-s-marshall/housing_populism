@@ -357,8 +357,22 @@ my_ggsave("viz/figure_2_aggregate.png")
 
 # homeownership % and prices --------------------------------------------
 
+prices_21 <- read_csv("data/median_house_prices_2021.csv")
+
+names(prices_21) <- names(prices_21) %>% 
+  str_remove_all("Year ending Sep") %>% 
+  str_squish()
+
+prices_21 <- prices_21 %>% 
+  rename(la_code = `Local authority code`) %>% 
+  mutate(prices = `2021`) %>% 
+  select(la_code, prices)
+
 dat |> 
-  ggplot(aes(x = log_prices, y = homeowner_pct)) +
+  left_join(prices_21, by = "la_code",
+            suffix = c("_16","_21")) |>
+  mutate(log_prices_21 = log(prices_21)) |> 
+  ggplot(aes(x = log_prices_21, y = homeowner_pct)) +
   geom_point(aes(colour = london)) +
   geom_smooth(aes(colour = london, fill = london), method = "lm") +
   theme_bw() +
