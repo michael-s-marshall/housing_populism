@@ -115,21 +115,15 @@ p5 <- full_cart |>
   scale_fill_viridis_d() +
   labs(fill = "PCA Category") +
   theme_void() +
-  theme(legend.position = c(1,0.75),
+  theme(legend.position = c(0.875,0.8),
         legend.text = element_text(size = 7),
         legend.title = element_text(size = 7))
 
 p5
 
-ggsave("viz/pca_map_categories.png",
-       width = 25.5, height = 16.575, unit = "cm")
-
 # combined final plot ---------------------------------------------------------
 
 free(p5) + p3 / p4 + plot_layout(widths = c(2.3, 1.2))
-
-ggsave("viz/pca_map_full.png",
-       width = 25.5, height = 16.575, unit = "cm")
 
 pg_ggsave <- function(width = c(90, 140, 190), ...){
   if(width == 90){
