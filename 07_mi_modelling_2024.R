@@ -18,11 +18,33 @@ pooled_summary <- function(mitml_obj){
 
 dat <- readRDS("data/modelling_dataset_2024.RDS")
 
+# helper functions ---------------------------------------------
+
 my_ggsave <- function(...){
   ggsave(...,
          units = "px",
          width = 3796,
          height = 2309)
+}
+
+pg_ggsave <- function(width = c(90, 140, 190), ...){
+  if(width == 90){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 67.5)
+  } else if (width == 140){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 105)
+  } else {
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 142.5)
+  }
+  
 }
 
 # missing observations ----------------------------------------------------
@@ -102,6 +124,14 @@ ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
   labs(x = "Voted Reform UK in 2024 General Election")
 
 my_ggsave("viz/appendix_imputation_reform.png")
+
+ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
+  geom_density() +
+  labs(x = "Voted Reform UK in 2024 General Election") +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+pg_ggsave(width = 140, "viz/appendix_imputation_reform.pdf")
 
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = income)) +
@@ -285,6 +315,31 @@ my_ggsave(filename = "viz/AME_plot_reg_fit_2024.png")
 saveRDS(mfx_home, file = "models/AMEs_homeowner_affordability_2024.RDS")
 saveRDS(mfx_sohs, file = "models/AMEs_social_affordability_2024.RDS")
 
+# plot of marginal effects - PG plot
+pooled_ame_sohs |> 
+  bind_rows(pooled_ame_home, .id = "tenure") |>
+  mutate(tenure = case_when(tenure == "1" ~ "Social housing", .default = "Homeowner")) |> 
+  ggplot(aes()) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, x = affordability, fill = tenure), alpha = 0.2) +
+  geom_line(aes(x = affordability, y = .estimate, colour = tenure), linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(
+    x = "Affordability (standardised)",
+    y = "Average Marginal Effect: Voting Reform UK",
+    colour = "Tenure", fill = "Tenure"
+  ) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        panel.grid.minor = element_blank()) +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d()
+
+pg_ggsave(width = 140, "viz/figure_5.pdf")
+
 # PCA model -------------------------------------------------------------------
 
 start_time <- Sys.time()
@@ -436,6 +491,61 @@ h1 + sh1 + plot_layout(axis_titles = "collect",
 my_ggsave("viz/AMES_plot_pca_2024.png")
 saveRDS(mfx_pc1, file = "models/AMEs_social_pc1_2024.RDS")
 saveRDS(mfx_pc2, file = "models/AMEs_homeowner_pc2_2024.RDS")
+
+# PG plot for PCA AMEs ------------------------------------------------------
+
+sh2 <- pooled_ame_pc1 |> 
+  mutate(Tenure = "Social housing") |>
+  ggplot() +
+  geom_ribbon(aes(x = pc1, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc1, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc1), alpha = 0.4) +
+  labs(
+    x = "PC1 (standardised)",
+    y = "Average Marginal Effect: Voting Reform UK"
+  ) +
+  coord_cartesian(ylim = c(-0.05, 0.4)) +
+  theme_bw() +
+  scale_colour_manual(values = viridis_scale[2]) +
+  scale_fill_manual(values = viridis_scale[2]) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 7),
+        panel.grid.minor = element_blank())
+
+h2 <- pooled_ame_pc2 |> 
+  mutate(Tenure = "Homeowner") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc2, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc2, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc2), alpha = 0.4) +
+  labs(
+    x = "PC2 (standardised)",
+    y = "Average Marginal Effect: Voting Reform UK",
+    fill = "Tenure", colour = "Tenure"
+  ) +
+  coord_cartesian(ylim = c(-0.05, 0.4)) +
+  scale_colour_manual(values = viridis_scale[1]) +
+  scale_fill_manual(values = viridis_scale[1]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        panel.grid.minor = element_blank())
+
+h2 + sh2 + plot_layout(axis_titles = "collect",
+                       guides = "collect") & 
+  theme(
+    legend.spacing.y = unit(0, "cm"),     
+    legend.margin = ggplot2::margin(0, 0, 0, 0),   
+    legend.box.margin = ggplot2::margin(-5, 0, -5, 0) 
+  )
+
+pg_ggsave(width = 190, "viz/figure_6.pdf")
 
 # odds ratio plot --------------------------------------------------------
 
