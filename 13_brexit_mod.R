@@ -23,6 +23,33 @@ rescale01 <- function(x, ...){
   return(out)
 }
 
+my_ggsave <- function(...){
+  ggsave(...,
+         units = "px",
+         width = 3796,
+         height = 2309)
+}
+
+pg_ggsave <- function(width = c(90, 140, 190), ...){
+  if(width == 90){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 67.5)
+  } else if (width == 140){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 105)
+  } else {
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 142.5)
+  }
+  
+}
+
 # education ---------------------------------------
 
 fp <- "X:/marshall_group/User/gp1mmx/housing_populism/data/"
@@ -322,6 +349,7 @@ summ(add_mod, vifs = TRUE)
 
 # av plots -------------------------------------------------------------------
 
+# internal use plot
 p1 <- dat |> 
   ggplot(aes(x = log_prices, y = Pct_Leave)) +
   geom_point(alpha = 0.6) +
@@ -346,14 +374,42 @@ p4 <- effect_plot(add_mod, pred = working_degree_pct, interval = TRUE, partial.r
 require(patchwork)
 p1 + p2 + p3 + p4
 
-my_ggsave <- function(...){
-  ggsave(...,
-         units = "px",
-         width = 3796,
-         height = 2309)
-}
-
 my_ggsave("viz/figure_2_aggregate.png")
+
+# journal plot
+p1 <- dat |> 
+  ggplot(aes(x = log_prices, y = Pct_Leave)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", colour = "black", linewidth = 1.25) +
+  jtools::theme_nice() +
+  coord_cartesian(ylim = c(10,80)) +
+  labs(x = "Median prices (log)", y = "Leave %") +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+p2 <- effect_plot(ans_mod, pred = log_prices, interval = TRUE, plot.points = TRUE,
+                  x.label = "Median prices (log)",
+                  y.label = "Leave %") +
+  coord_cartesian(ylim = c(10,80)) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+p3 <- effect_plot(add_mod, pred = log_prices, interval = TRUE, partial.residuals = TRUE,
+                  x.label = "Median prices (log)",
+                  y.label = "Leave %") +
+  coord_cartesian(ylim = c(10,80)) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+p4 <- effect_plot(add_mod, pred = working_degree_pct, interval = TRUE, partial.residuals = TRUE,
+                  x.label = "Working age population with degrees %",
+                  y.label = "Leave %") +
+  coord_cartesian(ylim = c(10,80)) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+require(patchwork)
+p1 + p2 + p3 + p4
+
+pg_ggsave(width = 190, "viz/figure_2.pdf")
 
 # homeownership % and prices --------------------------------------------
 
