@@ -252,6 +252,7 @@ reg_main |>
         legend.title = element_text(size = 7),
         legend.text = element_text(size = 7))
 
+my_ggsave("viz/appendix_aps_quals_affordability.svg")
 pg_ggsave(width = 190, "viz/appendix_aps_quals_affordability.pdf")
 
 pca_main |> 
@@ -285,4 +286,5 @@ pca_main |>
         legend.title = element_text(size = 7),
         legend.text = element_text(size = 7))
 
+my_ggsave("viz/appendix_aps_quals_pca.svg")
 pg_ggsave(width = 190, "viz/appendix_aps_quals_pca.pdf")

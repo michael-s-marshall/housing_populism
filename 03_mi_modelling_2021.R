@@ -123,9 +123,11 @@ imp_mice <- mice(dat, method = meth, predictorMatrix = pred, m = 5, maxit = 5, p
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = immigSelf)) +
   geom_boxplot() +
-  labs(x = "Imputation number", y = "Opposition to migration")
+  labs(x = "Imputation number", y = "Opposition to migration") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 14))
 
-my_ggsave("viz/appendix_imputation_migration_boxplot.png")
+my_ggsave("viz/appendix_imputation_migration_boxplot.svg")
 
 # PG plot
 ggmice(imp_mice, aes(x = .imp, y = immigSelf)) +
@@ -139,9 +141,11 @@ pg_ggsave(width = 140, "viz/appendix_imputation_migration_boxplot.pdf")
 # ggmice income density plot
 ggmice(imp_mice, aes(x = immigSelf, group = .imp)) +
   geom_density() + 
-  labs(x = "Opposition to migration")
+  labs(x = "Opposition to migration") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 14))
 
-my_ggsave("viz/appendix_imputation_migration_density.png")
+my_ggsave("viz/appendix_imputation_migration_density.svg")
 
 ggmice(imp_mice, aes(x = immigSelf, group = .imp)) +
   geom_density() + 
@@ -431,9 +435,11 @@ pooled_summary(reg_bin) |>
                               "Private renting",
                               "Social housing",
                               "Social housing X Affordability")) +
-  labs(x = "Odds Ratio", y = NULL)
+  labs(x = "Odds Ratio", y = NULL) +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14))
 
-my_ggsave("viz/appendix_ORs_logit_reg.png")
+my_ggsave("viz/appendix_ORs_logit_reg.svg")
 
 pooled_summary(reg_bin) |> 
   mutate(across(estimate:conf.high, exp)) |> 
@@ -470,9 +476,11 @@ pooled_summary(pca_bin) |>
                               "Private renting",
                               "Social housing",
                               "Social housing X PC1")) +
-  labs(x = "Odds Ratio", y = NULL)
+  labs(x = "Odds Ratio", y = NULL) +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14))
 
-my_ggsave("viz/appendix_ORs_logit_pca.png")
+my_ggsave("viz/appendix_ORs_logit_pca.svg")
 
 pooled_summary(pca_bin) |> 
   mutate(across(estimate:conf.high, exp)) |> 
@@ -601,10 +609,10 @@ h_plot <- ggplot(pooled_results) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
   labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 11),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12)) +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 14)) +
   scale_colour_manual(values = viridis_scale) +
   scale_fill_manual(values = viridis_scale) +
   coord_cartesian(ylim = c(5,9.25)) +
@@ -636,10 +644,10 @@ s_plot <- ggplot(pooled_soc_ho) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
   labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 11),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12)) +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 14)) +
   scale_colour_viridis_d() +
   scale_fill_viridis_d() +
   coord_cartesian(ylim = c(5,9.25)) +
@@ -649,7 +657,7 @@ pacman::p_load(patchwork)
 
 h_plot + s_plot + plot_layout(axis_titles = "collect")
 
-my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.png")
+my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.svg")
 
 h_plot7 <- ggplot(pooled_results) +
   geom_line(aes(x = affordability, y = .estimate, 
@@ -724,15 +732,15 @@ ggplot(pooled_ans) +
   geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
   labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
   theme_bw() +
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 11),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12)) +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 14)) +
   scale_colour_manual(values = viridis_scale) +
   scale_fill_manual(values = viridis_scale) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
-my_ggsave(filename = "viz/predicted_outcome_adler_ansell_2021.png")
+my_ggsave(filename = "viz/predicted_outcome_adler_ansell_2021.svg")
 
 ggplot(pooled_ans) +
   geom_line(aes(x = affordability, y = .estimate, 

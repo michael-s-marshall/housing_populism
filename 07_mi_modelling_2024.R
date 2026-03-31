@@ -121,9 +121,11 @@ map_dbl(imp_mice$imp$brexit_party, .f = function(x) {
 
 ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
   geom_density() +
-  labs(x = "Voted Reform UK in 2024 General Election")
+  labs(x = "Voted Reform UK in 2024 General Election") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 14))
 
-my_ggsave("viz/appendix_imputation_reform.png")
+my_ggsave("viz/appendix_imputation_reform.svg")
 
 ggmice(imp_mice, aes(x = brexit_party, group = .imp)) +
   geom_density() +

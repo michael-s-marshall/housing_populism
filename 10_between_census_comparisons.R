@@ -81,8 +81,8 @@ my_theme <- function(){
   theme_bw() +
   theme(panel.grid.minor = element_blank(),
         plot.caption.position = "plot",
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 7))
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12))
 }
 
 # correlation
@@ -106,7 +106,7 @@ owners_full |>
   labs(x = "Homeownership percentage 2011", y = "Homeownership percentage 2021") +
   my_theme()
 
-pg_ggsave(width = 140, "viz/between_census_homeownership.pdf")
+pg_ggsave(width = 140, "viz/between_census_homeownership.svg")
 
 # overcrowded % --------------------------------------------------------------
 
@@ -132,7 +132,7 @@ occ_full |>
   labs(x = "Overcrowded percentage 2011 (log)", y = "Overcrowded percentage 2021 (log)") +
   my_theme()
 
-pg_ggsave(width = 140, "viz/between_census_overcrowding.pdf")
+pg_ggsave(width = 140, "viz/between_census_overcrowding.svg")
 
 # underoccupied % --------------------------------------------------------------
 
@@ -157,4 +157,4 @@ occ_full |>
   labs(x = "Underoccupied percentage 2011", y = "Underoccupied percentage 2021 (log)") +
   my_theme()
 
-pg_ggsave(width = 140, "viz/between_census_underoccupying.pdf")
+pg_ggsave(width = 140, "viz/between_census_underoccupying.svg")
