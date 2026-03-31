@@ -13,6 +13,26 @@ my_ggsave <- function(...){
          height = 2309)
 }
 
+pg_ggsave <- function(width = c(90, 140, 190), ...){
+  if(width == 90){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 67.5)
+  } else if (width == 140){
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 105)
+  } else {
+    ggsave(...,
+           units = "mm",
+           width = width,
+           height = 142.5)
+  }
+  
+}
+
 pooled_summary <- function(mitml_obj){
   out <- as.data.frame(testEstimates(mitml_obj)$estimates[,1]) |> 
     rownames_to_column(var = "term") |> 
@@ -107,12 +127,29 @@ ggmice(imp_mice, aes(x = .imp, y = immigSelf)) +
 
 my_ggsave("viz/appendix_imputation_migration_boxplot.png")
 
+# PG plot
+ggmice(imp_mice, aes(x = .imp, y = immigSelf)) +
+  geom_boxplot() +
+  labs(x = "Imputation number", y = "Opposition to migration") +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+pg_ggsave(width = 140, "viz/appendix_imputation_migration_boxplot.pdf")
+
 # ggmice income density plot
 ggmice(imp_mice, aes(x = immigSelf, group = .imp)) +
   geom_density() + 
   labs(x = "Opposition to migration")
 
 my_ggsave("viz/appendix_imputation_migration_density.png")
+
+ggmice(imp_mice, aes(x = immigSelf, group = .imp)) +
+  geom_density() + 
+  labs(x = "Opposition to migration") + 
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+pg_ggsave(width = 140, "viz/appendix_imputation_migration_density.pdf")
 
 # ggmice income boxplot
 ggmice(imp_mice, aes(x = .imp, y = income)) +
@@ -163,27 +200,6 @@ ggmice(imp_mice, aes(x = affordability)) +
 imp_mitml <- mids2mitml.list(imp_mice)
 
 # lmer -------------------------------------------------------------------------
-
-# NULL models
-my_summ <- function(obj){
-  out <- summ(obj, digits = 3, re.var = "var")
-  return(out)
-}
-
-pooled_coefs_plot <- function(obj){
-  obj |> 
-    pool() |> 
-    summary(conf.int = TRUE) |> 
-    filter(term != "(Intercept)") |> 
-    ggplot(aes(x = estimate, y = term)) +
-    geom_vline(xintercept = 0, linetype = "dashed", linewidth = 1.25, colour = "lightgrey") +
-    geom_linerange(aes(xmin = conf.low, xmax = conf.high), linewidth = 1.25) +
-    geom_point(shape = 21, fill = "white", size = 3) +
-    theme_bw() +
-    theme(panel.grid.minor.y = element_blank(),
-          panel.grid.major.y = element_blank()) +
-    labs(x = "Estimate", y = NULL)
-}
 
 null_fit <- with(data = imp_mitml, {
   lmer(immigSelf ~ (1|LAD), REML = FALSE)
@@ -419,6 +435,26 @@ pooled_summary(reg_bin) |>
 
 my_ggsave("viz/appendix_ORs_logit_reg.png")
 
+pooled_summary(reg_bin) |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  filter(term %in% c("private_renting","social_housing","affordability","homeowner","social_housing:affordability","affordability:homeowner")) |> 
+  ggplot(aes(x = estimate, xmin = conf.low, xmax = conf.high, y = term)) +
+  geom_vline(xintercept = 1, linewidth = 1.2, linetype = "dashed", colour = "grey") +
+  geom_linerange(linewidth = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.5) +
+  theme_bw() +
+  scale_y_discrete(labels = c("Affordability",
+                              "Affordability X Homeowner",
+                              "Homeowner",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X Affordability")) +
+  labs(x = "Odds Ratio", y = NULL) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+pg_ggsave(width = 140, "viz/appendix_ORs_logit_reg.pdf")
+
 pooled_summary(pca_bin) |> 
   mutate(across(estimate:conf.high, exp)) |> 
   filter(term %in% c("private_renting","social_housing","pc1","homeowner","pc2","social_housing:pc1","homeowner:pc2")) |> 
@@ -437,6 +473,27 @@ pooled_summary(pca_bin) |>
   labs(x = "Odds Ratio", y = NULL)
 
 my_ggsave("viz/appendix_ORs_logit_pca.png")
+
+pooled_summary(pca_bin) |> 
+  mutate(across(estimate:conf.high, exp)) |> 
+  filter(term %in% c("private_renting","social_housing","pc1","homeowner","pc2","social_housing:pc1","homeowner:pc2")) |> 
+  ggplot(aes(x = estimate, xmin = conf.low, xmax = conf.high, y = term)) +
+  geom_vline(xintercept = 1, linewidth = 1.2, linetype = "dashed", colour = "grey") +
+  geom_linerange(linewidth = 1.2) +
+  geom_point(shape = 21, fill = "white", size = 3.5) +
+  theme_bw() +
+  scale_y_discrete(labels = c("Homeowner",
+                              "Homeowner X PC2",
+                              "PC1",
+                              "PC2",
+                              "Private renting",
+                              "Social housing",
+                              "Social housing X PC1")) +
+  labs(x = "Odds Ratio", y = NULL) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7))
+
+pg_ggsave(width = 140, "viz/appendix_ORs_logit_pca.pdf")
 
 # robustness check - checking linearity ---------------------------------
 
@@ -594,6 +651,50 @@ h_plot + s_plot + plot_layout(axis_titles = "collect")
 
 my_ggsave(filename = "viz/predicted_outcome_reg_fit_2021.png")
 
+h_plot7 <- ggplot(pooled_results) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(homeowner)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(homeowner),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7)) +
+  scale_colour_manual(values = viridis_scale) +
+  scale_fill_manual(values = viridis_scale) +
+  coord_cartesian(ylim = c(5,9.25)) +
+  labs(colour = "Homeowner", fill = "Homeowner")
+
+s_plot7 <- ggplot(pooled_soc_ho) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(social_housing)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(social_housing),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7)) +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  coord_cartesian(ylim = c(5,9.25)) +
+  labs(colour = "Social housing", fill = "Social housing")
+
+h_plot7 + s_plot7 + plot_layout(axis_titles = "collect")
+
+pg_ggsave(width = 190, "viz/predicted_outcome_reg_fit_2021.pdf")
+
 # predictions: mimicking Adler and Ansell (2019) -------------------------------
 
 # avg predictions for homeownership
@@ -632,6 +733,27 @@ ggplot(pooled_ans) +
   labs(colour = "Homeowner", fill = "Homeowner")
 
 my_ggsave(filename = "viz/predicted_outcome_adler_ansell_2021.png")
+
+ggplot(pooled_ans) +
+  geom_line(aes(x = affordability, y = .estimate, 
+                color = as.factor(homeowner)),
+            linewidth = 1) +
+  geom_ribbon(aes(x = affordability,
+                  fill = as.factor(homeowner),
+                  ymin = conf.low, ymax = conf.high),
+              alpha = 0.2, color = NA) +
+  geom_rug(data = dat, aes(x = affordability), alpha = 0.4) +
+  labs(y = "Predicted outcome: Opposition to migration", x = "Affordability (standardised)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7)) +
+  scale_colour_manual(values = viridis_scale) +
+  scale_fill_manual(values = viridis_scale) +
+  labs(colour = "Homeowner", fill = "Homeowner")
+
+pg_ggsave(width = 190, "viz/predicted_outcome_adler_ansell_2021.pdf")
 
 # predictions: mimicking Adler and Ansell (2019) incl. degree pct --------------
 
@@ -710,6 +832,29 @@ comp_home |>
   labs(x = "Affordability (standardised)", y = "Estimate: Opposition to migration", colour = "Tenure", fill = "Tenure")
 
 my_ggsave(filename = "viz/AME_moderation_reg_fit_2021.png")
+
+# PG plot
+comp_home |> 
+  my_pool(affordability) |> 
+  bind_rows(my_pool(comp_sohs, affordability), .id = "tenure") |> 
+  mutate(tenure = case_when(tenure == "1" ~ "Homeowner",
+                            .default = "Social housing")) |> 
+  ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "lightgrey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = affordability), colour = "black", alpha = 0.4) +
+  geom_ribbon(aes(x = affordability, ymin = conf.low, ymax = conf.high, fill = tenure), alpha = 0.25) +
+  geom_line(aes(x = affordability, y = .estimate, colour = tenure), linewidth = 1.25)  +
+  scale_colour_viridis_d() +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7)) +
+  theme(panel.grid.minor = element_blank()) +
+  labs(x = "Affordability (standardised)", y = "Estimate: Opposition to migration", colour = "Tenure", fill = "Tenure")
+
+pg_ggsave(width = 140, "viz/figure_3.pdf")
 
 # pca moderation plot ----------------------------------------------------------------
 
@@ -790,6 +935,64 @@ h1 + s1 + plot_layout(axis_titles = "collect",
   )
 
 my_ggsave("viz/AMES_moderation_pca_fit_2021.png")
+
+# PG plot version ----------------------------------------------------------
+
+h1.7 <- pca2_home |> 
+  my_pool(pc2) |> 
+  mutate(Tenure = "Homeowner") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc2, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc2, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc2), alpha = 0.4) +
+  labs(
+    x = "PC2 (standardised)",
+    y = "Estimate: Opposition to migration",
+    fill = "Tenure", colour = "Tenure"
+  ) +
+  coord_cartesian(ylim = c(-0.5, 2.25)) +
+  scale_colour_manual(values = viridis_scale[1]) +
+  scale_fill_manual(values = viridis_scale[1]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        panel.grid.minor = element_blank())
+
+s1.7 <- pca1_sohs |> 
+  my_pool(pc1) |> 
+  mutate(Tenure = "Social housing") |> 
+  ggplot() +
+  geom_ribbon(aes(x = pc1, ymin = conf.low, ymax = conf.high, fill = Tenure), alpha = 0.2) +
+  geom_line(aes(x = pc1, y = .estimate, colour = Tenure), linewidth = 1.25) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey", linewidth = 1.2) +
+  geom_rug(data = dat, aes(x = pc1), alpha = 0.4) +
+  labs(
+    x = "PC1 (standardised)",
+    y = "Estimate: Opposition to migration",
+    fill = "Tenure", colour = "Tenure"
+  ) +
+  coord_cartesian(ylim = c(-0.5, 2.25)) +
+  theme_bw() +
+  scale_colour_manual(values = viridis_scale[2]) +
+  scale_fill_manual(values = viridis_scale[2]) +
+  theme(axis.title = element_text(size = 7),
+        axis.text = element_text(size = 7),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 7),
+        panel.grid.minor = element_blank())
+
+h1.7 + s1.7 + plot_layout(axis_titles = "collect",
+                      guides = "collect") & 
+  theme(
+    legend.spacing.y = unit(0, "cm"),     
+    legend.margin = ggplot2::margin(0, 0, 0, 0),   
+    legend.box.margin = ggplot2::margin(-5, 0, -5, 0) 
+  )
+
+pg_ggsave(width = 190, "viz/figure_4.pdf")
 
 # joint coef plot ---------------------------------------------------------------------
 
